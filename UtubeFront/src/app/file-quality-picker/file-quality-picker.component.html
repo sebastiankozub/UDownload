@@ -1,0 +1,29 @@
+<p>file-quality-picker works!</p>
+<h2>Files Download</h2>
+
+<input type="text" [(ngModel)]="resourceId" placeholder="Enter ID">
+<button (click)="fetchAvManifest()">Fetch Manifests</button>
+
+<h3>Streams</h3>
+
+<app-checkbox-list #checkboxList1
+  [items]="videoStreams" listTitle="Video Streams by Quality"
+  (selectedItemsChange)="onSelectedVStreamsChange($event)">
+</app-checkbox-list>
+
+<app-checkbox-list #checkboxList2
+  [items]="audioStreams" listTitle="Audio Streams by Quality"
+  (selectedItemsChange)="onSelectedAStreamsChange($event)">
+</app-checkbox-list>
+
+<p>A Items in Parent: {{ selectedAudioStreamsHashIds.join(' \n ') + "\<br />------------------------------------------------"}}</p>
+<p>V Items in Parent: {{ selectedVideoStreamsHashIds.join(' \n ') + "\<br />------------------------------------------------"}}</p>
+
+<button (click)="downloadStreams()">Start Downloads</button>
+<div *ngIf="downloading">Downloading...</div>
+<div *ngIf="downloadInitSuccess">Downloading initilized</div>
+<div *ngIf="downloadError">{{ downloadError }}</div>
+<div *ngIf="downloadComplete">Downloads Complete</div>
+
+<p>All audio Items in Parent: {{ audioStreamFriendlyNames.join('\<br />') }}</p>
+<p>All video Items in Parent: {{ videoStreamFriendlyNames.join('\<br />') }}</p>
