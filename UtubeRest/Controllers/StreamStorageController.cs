@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using System.Text;
+using UtubeRest.Data;
 
 // https://go.microsoft.com/fwlink/?LinkID=397860
 
@@ -9,15 +10,25 @@ namespace UtubeRest.Controllers;
 [ApiController]
 public class StreamStorageController : ControllerBase
 {
+    private readonly ITableRepository<TriggerDownloadEntity> _triggerDownloadRepository;
+
+    public StreamStorageController(ITableRepository<TriggerDownloadEntity> triggerDownloadRepository)
+    {
+        _triggerDownloadRepository = triggerDownloadRepository;
+    }
+
+
 
     // POST api/<StreamStorageController>/Import
     [HttpPost("Import")]
     public async Task<IActionResult> PostImport([FromBody] string[] hashIds)
     {
         // create job id
-
+        var jobId = Guid.NewGuid().ToString();
 
         // table storage stream-import-jobs - job id + hashes
+
+
 
         // table storage stream-import-status - hash + status=queued
 

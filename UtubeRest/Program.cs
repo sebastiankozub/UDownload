@@ -1,5 +1,9 @@
-﻿using Microsoft.Extensions.Options;
+﻿using Azure.Data.Tables;
+using Microsoft.Extensions.Azure;
+using Microsoft.Extensions.Options;
 using UtubeRest.Controllers;
+using UtubeRest.Data;
+using UtubeRest.Options;
 
 namespace UtubeRest
 {
@@ -18,16 +22,49 @@ namespace UtubeRest
                                         .WithOrigins("http://127.0.0.1:64100")
                                       .AllowAnyHeader()
                                       .AllowAnyMethod());
+                //options.AddPolicy("AllowSpecificOrigin",
+                //    builder => builder.WithOrigins("http://localhost:64100")
+                //          .AllowAnyHeader()
+                //          .AllowAnyMethod());
             });
 
-            //options.AddPolicy("AllowSpecificOrigin",
-            //    builder => builder.WithOrigins("http://localhost:64100")
-            //          .AllowAnyHeader()
-            //          .AllowAnyMethod());
+
+            var configuration = builder.Configuration;
+
+            //builder.Services.Configure<TableStorageOptions>(
+            //    builder.Configuration.GetSection(TableStorageOptions.Section));
+            builder.Services.AddOptions<TableStorageOptions>()
+                .Bind(builder.Configuration.GetSection(TableStorageOptions.Section))
+                .ValidateDataAnnotations()
+                .ValidateOnStart();
+            builder.Services.AddSingleton(s => s.GetRequiredService<IOptions<TableStorageOptions>>().Value);
 
 
             // Add services to the container.
 
+
+            builder.Services.AddTransient<ITableRepository<TriggerDownloadEntity>, TriggerDownloadRepository>();
+
+            builder.Services.AddHttpClient();
+
+            builder.Services.AddAzureClients(clientBuilder =>
+            {
+                //var str1 = host.Configuration.GetSection("PayloadStorage:StorageConnectionString");
+                //clientBuilder.AddBlobServiceClient(host.Configuration.GetSection("PayloadStorage:StorageConnectionString"))
+                //    .WithName("ApiFetchAndCache");
+
+                var str2 = builder.Configuration.GetSection("TableStorage:StorageConnectionString");
+                clientBuilder.AddTableServiceClient(builder.Configuration.GetSection("TableStorage:StorageConnectionString")).WithName("UtubeRestClient");
+            });
+
+            //builder.Services.AddScoped<TableServiceClient>(sp =>
+            //{
+            //    var tblStorageOptions = sp.GetRequiredService<TableStorageOptions>();
+            //    return new TableServiceClient(tblStorageOptions.StorageConnectionString);
+            //});
+
+
+            //
             builder.Services.AddControllers();
             builder.Services.AddEndpointsApiExplorer();
 
@@ -50,6 +87,11 @@ namespace UtubeRest
             //
 
             //app.UseAuthorization();
+
+
+
+
+ 
 
 
 
