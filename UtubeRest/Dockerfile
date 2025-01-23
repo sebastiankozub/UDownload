@@ -14,15 +14,18 @@ RUN apt-get install -y --no-install-recommends python3
 RUN apt-get install -y --no-install-recommends python3-pip
 RUN apt-get install -y --no-install-recommends python3-venv
 RUN apt-get install -y --no-install-recommends pipx
-#RUN pip install --no-cache-dir pipx 
-RUN pipx ensurepath 
-
-RUN pipx install yt-dlp
 
 RUN apt-get install -y --no-install-recommends ffmpeg
-
 RUN rm -rf /var/lib/apt/lists/*
+
+
 USER $APP_UID
+
+RUN pipx install yt-dlp
+RUN pipx ensurepath 
+
+ENV PATH="$PATH:/home/app/.local/bin"
+
 
 # This stage is used to build the service project
 FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
