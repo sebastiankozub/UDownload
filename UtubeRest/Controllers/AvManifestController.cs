@@ -13,7 +13,7 @@ namespace UtubeRest.Controllers
     {
         // GET: api/<AvManifestController>
         [HttpGet]
-        public async Task<IEnumerable<AvManifest>> Get(params string[] ids)
+        public IEnumerable<AvManifest> Get(params string[] ids)
         {
             throw new NotImplementedException(nameof(AvManifestController));
 
@@ -57,7 +57,7 @@ namespace UtubeRest.Controllers
                 Description = video.Description,
                 Keywords = video.Keywords,
                 UploadDate = video.UploadDate,
-                AudioStreams = audioStreamInfos.Select(x => new AudioStream()
+                AudioStreams = audioStreamInfos.Select(x => new AudioAvStream()
                 {
                     Url = x.Url,
                     Container = x.Container.ToString(),
@@ -68,7 +68,7 @@ namespace UtubeRest.Controllers
                     IsAudioLanguageDefault = x.IsAudioLanguageDefault.ToString(),
                     HashId = GetSha256HashFrom(x.Url),
                 }).ToList(),
-                VideoStreams = videoStreamInfos.Select(x => new VideoStream()
+                VideoStreams = videoStreamInfos.Select(x => new VideoAvStream()
                 {
                     Url = x.Url,
                     Container = x.Container.ToString(),

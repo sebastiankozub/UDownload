@@ -32,8 +32,8 @@ namespace UtubeRest.ViewModel
 
         public required IReadOnlyList<string> Keywords { get; set; }
 
-        public required IReadOnlyList<AudioStream> AudioStreams { get; set; }
-        public required IReadOnlyList<VideoStream> VideoStreams { get; set; }
+        public required IReadOnlyList<AudioAvStream> AudioStreams { get; set; }
+        public required IReadOnlyList<VideoAvStream> VideoStreams { get; set; }
 
         //public Engagement Engagement { get; } = engagement;
 
@@ -41,35 +41,19 @@ namespace UtubeRest.ViewModel
         //public override string ToString() => $"Video ({Title})";
     }
 
-    public class VideoStream
+    public class VideoAvStream : AvStream
     {
-        public required string Url { get; set; }
-        public required string Container { get; set; }
-
-        public required string Size { get; set; }
-
-        public required string Bitrate { get; set; }
-
         public required string VideoCodec { get; set; }
 
         public  required string VideoQuality { get; set; }
 
         public required string VideoResolution { get; set; }
 
-        public required string HashId { get; set; }
-
         public override string ToString() => $"Video-only ({VideoQuality} | {Container})";
     }
 
-    public class AudioStream
+    public class AudioAvStream : AvStream
     {
-        public required string Url { get; set; }
-
-        public required string Container { get; set; }
-
-        public required string Size { get; set; }
-
-        public required string Bitrate { get; set; }
 
         public required string AudioCodec { get; set; }
 
@@ -77,11 +61,24 @@ namespace UtubeRest.ViewModel
 
         public required string? IsAudioLanguageDefault { get; set; }
 
-        public required string HashId { get; set; }
-
         public override string ToString() => AudioLanguage is not null
                 ? $"Audio-only ({Container} | {AudioLanguage})"
                 : $"Audio-only ({Container})";
     }
 
+    public abstract class AvStream
+    {
+        public required string HashId { get; set; }
+
+        public required string Url { get; set; }
+
+        public required string Container { get; set; }
+
+        public required string Size { get; set; }
+
+        public required string Bitrate { get; set; }
+
+        public bool IsAudioStream => this is AudioAvStream;
+        public bool IsVideoStream => this is VideoAvStream;
+    }
 }

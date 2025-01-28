@@ -4,7 +4,6 @@ using Azure;
 using Azure.Data.Tables;
 using Microsoft.Extensions.Azure;
 using Microsoft.Extensions.Logging;
-using System.Linq.Expressions;
 using UtubeRest.Options;
 
 namespace UtubeRest.Data;
