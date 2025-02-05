@@ -14,35 +14,36 @@ namespace UtubeRest.Controllers
     {
         // GET: api/<ValuesController>
         [HttpGet]
-        public async Task<IEnumerable<string>> Get()
+        public async Task<AvYtManifest> Get()
         {
             var ffMpegVersionCommmand = "ffmpeg -version";
             var ytDlpDownloadCommand = "yt-dlp - f 18 ZV5yTm4pT8g"; // "yt-dlp --version";
 
-            var ffmepegVersion = await YtdlpService.RunUnixCommandAsync(ffMpegVersionCommmand);
+            var ffmepegVersion = await YtService.RunUnixCommandAsync(ffMpegVersionCommmand);
 
 
-            var ytDlpVersion = await YtdlpService.RunUnixCommandAsync(ytDlpDownloadCommand);
-
-            var us = new YtdlpService();
-            var avManifest = us.GetAvManifest("https://www.youtube.com/watch?v=6n3pFFPSlW4");
+            var ytDlpVersion = await YtService.RunUnixCommandAsync(ytDlpDownloadCommand);
 
 
-            var urls = us.GetAvFormats("https://www.youtube.com/watch?v=6n3pFFPSlW4");
-
-            string s = "";
-            foreach(var url in urls)
-            {
-                s += " \n " + url.Url;
-
-            }
+            var us = new YtService();
+            var avManifest = await us.GetAvManifestAsync("https://www.youtube.com/watch?v=6n3pFFPSlW4");
 
 
-            var dynamicRes = JsonConvert.DeserializeObject(avManifest);  // Newtonsoft
+            //var urls = us.GetAvFormats("https://www.youtube.com/watch?v=6n3pFFPSlW4");
+
+            //string s = "";S
+            //foreach(var url in urls)
+            //{
+            //    s += " \n " + url.Url;
+
+            //}
 
 
+            //var dynamicRes = JsonConvert.DeserializeObject(avManifest);  // Newtonsoft
 
-            return new string[] { avManifest };
+            return avManifest;
+
+            //return new string[] { "avManifest" };
         }
 
 

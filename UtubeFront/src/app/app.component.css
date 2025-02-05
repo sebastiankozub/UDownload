@@ -1,0 +1,19 @@
+/* nav {
+    display: flex;
+    justify-content: space-between;
+    padding: 10px;
+}
+
+nav a {
+    margin: 0 15px;
+    text-decoration: none;
+    color: #000;
+} */
+
+nav {
+    justify-content: flex-start;
+}
+
+nav a {
+    margin: 0 5px;
+}

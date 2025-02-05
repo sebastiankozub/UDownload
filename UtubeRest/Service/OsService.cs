@@ -56,7 +56,7 @@ namespace UtubeRest.Service
             catch (OperationCanceledException)
             {
                 process.Kill();
-                Console.WriteLine("Copmmand has been Terminated");
+                Console.WriteLine("Command has been Terminated");
             }
 
             return sbOutput.ToString();

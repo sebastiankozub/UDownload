@@ -17,9 +17,10 @@
 </app-checkbox-list>
 
 <p>A Items in Parent: {{ selectedAudioStreamsHashIds.join(' \n ') + "\<br />------------------------------------------------"}}</p>
-<p>V Items in Parent: {{ selectedVideoStreamsHashIds.join(' \n ') + "\<br />------------------------------------------------"}}</p>
+<p>V Items in Parent: {{ selectedVideoStreamsHashIds.join(' \n ') + "\<br />-----------------------------------------------"}}</p>
 
 <button (click)="downloadStreams()">Start Downloads</button>
+
 <div *ngIf="downloading">Downloading...</div>
 <div *ngIf="downloadInitSuccess">Downloading initilized</div>
 <div *ngIf="downloadError">{{ downloadError }}</div>
