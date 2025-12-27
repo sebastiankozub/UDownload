@@ -46,7 +46,7 @@ namespace UtubeRest.Service
             process.BeginOutputReadLine();
             process.BeginErrorReadLine();
 
-            var timeoutSignal = new CancellationTokenSource(TimeSpan.FromSeconds(120)); // 2 min timeout 
+            var timeoutSignal = new CancellationTokenSource(TimeSpan.FromSeconds(1200)); // 2 min timeout 
 
             try
             {

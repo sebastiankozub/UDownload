@@ -61,14 +61,9 @@ namespace UtubeRest.Controllers
             var cookiesParam = _ytService.GetCookiesParameterPublic();
             var downloadsDir = "/home/app/downloads";
 
-            // Ensure downloads directory exists (safe if already present)
-            await YtService.RunUnixCommandAsync($"mkdir -p {downloadsDir}");
-
-            // Common args to be a bit nicer to YouTube while debugging
             // var common = $"{cookiesParam} --rate-limit 2M --sleep-requests 1 --max-sleep-interval 3 --retries 6 --fragment-retries 6";
-            // Common args to be a bit nicer to YouTube while debugging
             var common = $"{cookiesParam} --rate-limit 2M --sleep-requests 1 --min-sleep-interval 1 --max-sleep-interval 3 --retries 6 --fragment-retries 6";
-            string cmd;
+
             if (string.Equals(request.Mode, "separate", StringComparison.OrdinalIgnoreCase))
             {
                 // Save best video only
@@ -92,19 +87,19 @@ namespace UtubeRest.Controllers
             }
             else
             {
-                // Merge best video+audio into a single file (requires ffmpeg in image, already installed)
                 var mergedOut = "/home/app/downloads/%(title)s.%(id)s.%(ext)s";
-
-                // Let yt-dlp pick bestvideo+bestaudio and merge via ffmpeg
-                cmd = $"yt-dlp {common}  -f \"bestvideo[ext=mp4]+bestaudio[ext=m4a]/best\" -o '{mergedOut}' \"{request.Url}\"";
-
+                var cmd = $"yt-dlp {common}  -f \"bestvideo[ext=mp4]+bestaudio[ext=m4a]/best\" -o '{mergedOut}' \"{request.Url}\"";
                 var outLog = await YtService.RunUnixCommandAsync(cmd);
 
-                // Save best video only
                 var videoOut = "/home/app/downloads/%(title)s.%(id)s.video.%(ext)s";
                 var audioOut = "/home/app/downloads/%(title)s.%(id)s.audio.%(ext)s";
-                var videoCmd = $"yt-dlp {common} -f bestvideo -o '{videoOut}' \"{request.Url}\"";
-                var audioCmd = $"yt-dlp {common} -f bestaudio -o '{audioOut}' \"{request.Url}\"";
+                var videoCmd = $"yt-dlp {common} -f bv -o '{videoOut}' \"{request.Url}\"";
+                var audioCmd = $"yt-dlp {common} -f ba -o '{audioOut}' \"{request.Url}\"";
+
+                //yt-dlp --cookies /home/app/cookies/youtube.txt -f bv* -o '/home/app/downloads/%(title)s.%(id)s.video.%(ext)s' e4Pto7KN604
+                //yt-dlp --list-formats "https://www.youtube.com/watch?v=wG0kHWoh3Ms"
+                //yt-dlp  --extractor-args "youtube:player_client=android" --cookies /home/app/cookies/youtube.txt -f best -o '/home/app/downloads/%(title)s.%(id)s.audio.%(ext)s' wG0kHWoh3Ms
+                //yt-dlp --cookies /home/app/cookies/youtube.txt  --js-runtimes node --list-formats "https://www.youtube.com/watch?v=wG0kHWoh3Ms"
 
                 var videoOutLog = await YtService.RunUnixCommandAsync(videoCmd);
                 var audioOutLog = await YtService.RunUnixCommandAsync(audioCmd);
@@ -119,6 +114,37 @@ namespace UtubeRest.Controllers
             }
         }
 
+        // POST api/values/download/video-only
+        // Downloads best available video (bv*) by URL or ID, using cookies and specific output template
+        [HttpPost("download/video")]
+        public async Task<IActionResult> DownloadVideo([FromBody] VideoOnlyRequest request)
+        {
+            if (string.IsNullOrWhiteSpace(request.UrlOrId))
+                return BadRequest("UrlOrId is required.");
+
+            var cookiesParam = _ytService.GetCookiesParameterPublic();
+            var downloadsDir = "/home/app/downloads";
+            var outputTemplate = $"{downloadsDir}/%(title)s.%(id)s.video.%(ext)s";
+
+            var url = request.UrlOrId;
+            if (!url.Contains("youtube.com") && !url.Contains("youtu.be"))
+            {
+                url = $"https://www.youtube.com/watch?v={request.UrlOrId}";
+            }
+
+            var cmd = $"yt-dlp {cookiesParam} -f \"bestvideo[ext=mp4]+bestaudio[ext=m4a]/best\" -o '{outputTemplate}' '{url}'";
+            var log = await YtService.RunUnixCommandAsync(cmd);
+
+            return Ok(new
+            {
+                mode = "video",
+                input = request.UrlOrId,
+                resolvedUrl = url,
+                command = cmd,
+                downloadsDir
+            });
+        }
+
         public class DownloadRequest
         {
             public string Url { get; set; } = string.Empty;
@@ -126,7 +152,11 @@ namespace UtubeRest.Controllers
             public string Mode { get; set; } = "merged";
         }
 
-        // existing endpoints...
+        public class VideoOnlyRequest
+        {
+            public string UrlOrId { get; set; } = string.Empty;
+        }
+
         [HttpGet("{id}")]
         public string Get(int id) => "value";
 

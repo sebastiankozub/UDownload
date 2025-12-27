@@ -41,7 +41,7 @@
       "publishAllPorts": false,
       "sslPort": 7101,
       "httpPort": 5101,
-      "containerRunArguments": "-v {ProjectDir}\\..\\cookies:/home/app/cookies:ro"
+      "containerRunArguments": "-v {ProjectDir}\\..\\cookies:/home/app/cookies:rw  -v {ProjectDir}\\..\\download:/home/app/downloads:rw  "
     }
   },
   "$schema": "http://json.schemastore.org/launchsettings.json",
