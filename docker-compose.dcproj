@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="15.0" Sdk="Microsoft.Docker.Sdk">
+  <PropertyGroup Label="Globals">
+    <ProjectVersion>2.1</ProjectVersion>
+    <DockerTargetOS>Linux</DockerTargetOS>
+    <DockerPublishLocally>False</DockerPublishLocally>
+    <ProjectGuid>82b01888-3667-4095-8b79-54ebbff02e46</ProjectGuid>
+    <DockerLaunchAction>LaunchBrowser</DockerLaunchAction>
+    <DockerServiceUrl>{Scheme}://localhost:{ServicePort}/swagger</DockerServiceUrl>
+    <DockerServiceName>utuberest</DockerServiceName>
+  </PropertyGroup>
+  <ItemGroup>
+    <None Include="cookies\youtube.txt.template" />
+    <None Include="COOKIES_SETUP.md" />
+    <None Include="docker-compose.override.yml">
+      <DependentUpon>docker-compose.yml</DependentUpon>
+    </None>
+    <None Include="docker-compose.yml" />
+    <None Include=".dockerignore" />
+    <None Include="DOCKER_VOLUME_PATHS.md" />
+    <None Include="TROUBLESHOOTING_VOLUME_MOUNT.md" />
+    <None Include="verify-docker-volume.ps1" />
+    <None Include="VISUAL_STUDIO_DOCKER_SETUP.md" />
+  </ItemGroup>
+</Project>

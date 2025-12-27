@@ -1,10 +1,35 @@
-﻿using System.Text.Json;
+﻿using System.Text;
+using System.Text.Json;
+using Microsoft.Extensions.Options;
+using UtubeRest.Options;
 using UtubeRest.ViewModel;
 
 namespace UtubeRest.Service
 {
     public class YtService : OsService
     {
+        private readonly YtDlpOptions _ytDlpOptions;
+
+        public YtService(IOptions<YtDlpOptions> ytDlpOptions)
+        {
+            _ytDlpOptions = ytDlpOptions.Value;
+        }
+
+        public string GetCookiesParameterPublic()
+        {
+            if (_ytDlpOptions.UseCookies && !string.IsNullOrEmpty(_ytDlpOptions.CookiesFilePath))
+            {
+                if (File.Exists(_ytDlpOptions.CookiesFilePath))
+                {
+                    return $"--cookies {_ytDlpOptions.CookiesFilePath}";
+                }
+                else
+                {
+                    Console.WriteLine($"Warning: Cookies file not found at {_ytDlpOptions.CookiesFilePath}");
+                }
+            }
+            return string.Empty;
+        }
 
         public string GetYtServiceVersion()
         {
@@ -17,10 +42,12 @@ namespace UtubeRest.Service
 
         public async Task<AvYtManifest> GetAvManifestAsync(string url)
         {
-            var ytDlpVideoManifestCommand = $"yt-dlp {url} --dump-json";
+            var param = BuildCommonArgs();
+            var ytDlpVideoManifestCommand = $"yt-dlp {url} {param} --dump-json".Trim();
             var ytDlpManifest = await RunUnixCommandAsync(ytDlpVideoManifestCommand);
 
             var ytManifestObject = JsonSerializer.Deserialize<AvYtManifest>(ytDlpManifest);
+
             return ytManifestObject;
         }
 
@@ -36,29 +63,34 @@ namespace UtubeRest.Service
             {
                 return [];
             }
+        }
 
-            //using (JsonDocument document = JsonDocument.Parse(avManifest))
-            //{
-            //    JsonElement root = document.RootElement;
-            //    JsonElement formats = root.GetProperty("formats");
-            //    foreach (JsonElement format in formats.EnumerateArray())
-            //    {
-            //        if (format.TryGetProperty("url", out JsonElement formatElement))
-            //        {
-            //            yield return new AudioAvStream()
-            //            {
-            //                AudioCodec = "acodec",
-            //                AudioLanguage = "language",
-            //                Bitrate = "abr",
-            //                Container = "ext",
-            //                HashId = "format_id",
-            //                IsAudioLanguageDefault = "language",
-            //                Size = "filesize",
-            //                Url = formatElement.GetRawText()
-            //            };
-            //        }
-            //    }
-            //}
+        private string BuildCommonArgs()
+        {
+            var sb = new StringBuilder();
+
+            if (_ytDlpOptions.UseCookies && !string.IsNullOrEmpty(_ytDlpOptions.CookiesFilePath) && File.Exists(_ytDlpOptions.CookiesFilePath))
+                sb.Append($" --cookies \"{_ytDlpOptions.CookiesFilePath}\"");
+
+            if (!string.IsNullOrWhiteSpace(_ytDlpOptions.UserAgent))
+                sb.Append($" --user-agent \"{_ytDlpOptions.UserAgent}\"");
+
+            if (!string.IsNullOrWhiteSpace(_ytDlpOptions.RateLimit))
+                sb.Append($" --rate-limit {_ytDlpOptions.RateLimit}");
+
+            if (_ytDlpOptions.SleepRequestsSeconds > 0)
+                sb.Append($" --sleep-requests {_ytDlpOptions.SleepRequestsSeconds} --max-sleep-interval {_ytDlpOptions.MaxSleepIntervalSeconds}");
+
+            if (!string.IsNullOrWhiteSpace(_ytDlpOptions.ExtractorArgs))
+                sb.Append($" --extractor-args \"{_ytDlpOptions.ExtractorArgs}\"");
+
+            if (_ytDlpOptions.Retries > 0)
+                sb.Append($" --retries {_ytDlpOptions.Retries}");
+
+            if (_ytDlpOptions.FragmentRetries > 0)
+                sb.Append($" --fragment-retries {_ytDlpOptions.FragmentRetries}");
+
+            return sb.ToString();
         }
     }
 }

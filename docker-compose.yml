@@ -1,0 +1,6 @@
+services:
+  utuberest:
+    image: ${DOCKER_REGISTRY-}utuberest
+    build:
+      context: .
+      dockerfile: UtubeRest/Dockerfile

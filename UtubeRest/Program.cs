@@ -4,6 +4,7 @@ using Microsoft.Extensions.Options;
 using UtubeRest.Controllers;
 using UtubeRest.Data;
 using UtubeRest.Options;
+using UtubeRest.Service;
 
 namespace UtubeRest
 {
@@ -22,10 +23,6 @@ namespace UtubeRest
                                         .WithOrigins("http://127.0.0.1:64100")
                                       .AllowAnyHeader()
                                       .AllowAnyMethod());
-                //options.AddPolicy("AllowSpecificOrigin",
-                //    builder => builder.WithOrigins("http://localhost:64100")
-                //          .AllowAnyHeader()
-                //          .AllowAnyMethod());
             });
 
 
@@ -39,6 +36,11 @@ namespace UtubeRest
                 .ValidateOnStart();
             builder.Services.AddSingleton(s => s.GetRequiredService<IOptions<TableStorageOptions>>().Value);
 
+
+            builder.Services.AddOptions<YtDlpOptions>()
+                .Bind(builder.Configuration.GetSection("YtDlp"));
+            
+            builder.Services.AddTransient<YtService>();
 
             // Add services to the container.
 

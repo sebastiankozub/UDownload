@@ -18,6 +18,7 @@ RUN apt-get install -y --no-install-recommends pipx
 RUN apt-get install -y --no-install-recommends ffmpeg
 RUN rm -rf /var/lib/apt/lists/*
 
+#RUN mkdir -p /home/app/cookies && chown -R $APP_UID:$APP_UID /home/app/cookies
 
 USER $APP_UID
 
@@ -32,20 +33,22 @@ FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
 ARG BUILD_CONFIGURATION=Release
 WORKDIR /src
 COPY ["UtubeRest/UtubeRest.csproj", "UtubeRest/"]
-RUN dotnet restore "./UtubeRest/UtubeRest.csproj"
-COPY . .
-WORKDIR "/src/UtubeRest"
-RUN dotnet build "./UtubeRest.csproj" -c $BUILD_CONFIGURATION -o /app/build
+RUN dotnet restore "UtubeRest/UtubeRest.csproj"
+COPY UtubeRest/. UtubeRest/
+WORKDIR /src/UtubeRest
+RUN dotnet build "UtubeRest.csproj" -c $BUILD_CONFIGURATION -o /app/build
 
 # This stage is used to publish the service project to be copied to the final stage
 FROM build AS publish
 ARG BUILD_CONFIGURATION=Release
-RUN dotnet publish "./UtubeRest.csproj" -c $BUILD_CONFIGURATION -o /app/publish /p:UseAppHost=false
+RUN dotnet publish "UtubeRest.csproj" -c $BUILD_CONFIGURATION -o /app/publish /p:UseAppHost=false
 
 # This stage is used in production or when running from VS in regular mode (Default when not using the Debug configuration)
 FROM base AS final
 WORKDIR /app
 COPY --from=publish /app/publish .
+
+#RUN mkdir -p /home/app/cookies
 
 #ENV ASPNETCORE_HTTPS_PORT 8081
 #ENV ASPNETCORE_HTTP_PORT 8080
