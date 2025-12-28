@@ -361,3 +361,11 @@ MigrationBackup/
 
 # Fody - auto-generated XML schema
 FodyWeavers.xsd
+
+download/*
+!download/.gitkeep
+
+cookies/*.txt
+!cookies/.gitkeep
+
+
