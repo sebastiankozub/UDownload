@@ -7,7 +7,13 @@ EXPOSE 8081
 USER root
 
 RUN apt-get update
-RUN apt-get install -y --no-install-recommends nodejs
+
+# Install Node.js 25.x using NodeSource (includes installing curl first)
+RUN apt-get install -y --no-install-recommends curl ca-certificates gnupg \
+    && curl -fsSL https://deb.nodesource.com/setup_25.x | bash - \
+    && apt-get install -y --no-install-recommends nodejs \
+    && node --version
+
 RUN apt-get install -y --no-install-recommends python3
 RUN apt-get install -y --no-install-recommends python3-pip
 RUN apt-get install -y --no-install-recommends python3-venv
@@ -39,10 +45,5 @@ RUN dotnet publish "UtubeRest.csproj" -c $BUILD_CONFIGURATION -o /app/publish /p
 FROM base AS final
 WORKDIR /app
 COPY --from=publish /app/publish .
-
-#RUN mkdir -p /home/app/cookies
-
-#ENV ASPNETCORE_HTTPS_PORT 8081
-#ENV ASPNETCORE_HTTP_PORT 8080
 
 ENTRYPOINT ["dotnet", "UtubeRest.dll"]

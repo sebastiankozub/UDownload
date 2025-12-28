@@ -96,11 +96,11 @@ namespace UtubeRest.Controllers
                 var videoCmd = $"yt-dlp {common} -f bv -o '{videoOut}' \"{request.Url}\"";
                 var audioCmd = $"yt-dlp {common} -f ba -o '{audioOut}' \"{request.Url}\"";
 
-                //yt-dlp --cookies /home/app/cookies/youtube.txt -f bv* -o '/home/app/downloads/%(title)s.%(id)s.video.%(ext)s' e4Pto7KN604
+                //yt-dlp -vU --js-runtime node  --cookies /home/app/cookies/youtube.txt -f bv -o '/home/app/downloads/%(title)s.%(id)s.video.%(ext)s' e4Pto7KN604
                 //yt-dlp --list-formats "https://www.youtube.com/watch?v=wG0kHWoh3Ms"
                 //yt-dlp  --extractor-args "youtube:player_client=android" --cookies /home/app/cookies/youtube.txt -f best -o '/home/app/downloads/%(title)s.%(id)s.audio.%(ext)s' wG0kHWoh3Ms
-                //yt-dlp --cookies /home/app/cookies/youtube.txt  --js-runtimes node --list-formats "https://www.youtube.com/watch?v=wG0kHWoh3Ms"
-
+                //yt-dlp -vU --cookies /home/app/cookies/youtube.txt  --js-runtimes node --list-formats wG0kHWoh3Ms "https://www.youtube.com/watch?v=wG0kHWoh3Ms"
+                // yt-dlp -vU --js-runtime node --cookies /home/app/cookies/youtube.txt --list-formats e4Pto7KN604
                 var videoOutLog = await YtService.RunUnixCommandAsync(videoCmd);
                 var audioOutLog = await YtService.RunUnixCommandAsync(audioCmd);
 
