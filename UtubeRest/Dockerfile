@@ -46,4 +46,9 @@ FROM base AS final
 WORKDIR /app
 COPY --from=publish /app/publish .
 
+#RUN mkdir -p /home/app/cookies
+
+#ENV ASPNETCORE_HTTPS_PORT 8081
+#ENV ASPNETCORE_HTTP_PORT 8080
+
 ENTRYPOINT ["dotnet", "UtubeRest.dll"]

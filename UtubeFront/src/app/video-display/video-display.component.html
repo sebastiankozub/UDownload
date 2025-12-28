@@ -1,0 +1,13 @@
+<div *ngIf="loading">Loading video...</div>
+<div *ngIf="error" class="error">{{ error }}</div>
+
+<video 
+  *ngIf="videoUrl" 
+  [src]="videoUrl" 
+  controls 
+  preload="metadata"
+  (canplay)="onVideoCanPlay()"
+  (error)="onVideoError($event)"
+  style="width: 100%; max-width: 800px;">
+  Your browser does not support the video tag.
+</video>
