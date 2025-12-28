@@ -1,0 +1,45 @@
+
+yt-dlp --js-runtime node --cookies /home/app/cookies/youtube.txt
+
+
+yt-dlp -vU --js-runtime node  --cookies /home/app/cookies/youtube.txt -f bv -o '/home/app/downloads/%(title)s.%(id)s.video.%(ext)s' e4Pto7KN604
+yt-dlp  --cookies /home/app/cookies/youtube.txt -f best -o '/home/app/downloads/%(title)s.%(id)s.audio.%(ext)s' wG0kHWoh3Ms
+
+
+// SEARCH, filter, sort
+
+yt-dlp --js-runtime node --cookies /home/app/cookies/youtube.txt --print title "ytsearch4:youtube-dl"
+
+
+yt-dlp --js-runtime node  --cookies "/home/app/cookies/youtube.txt" --print '%(id)s\t%(title)s' "ytsearch4:van damme"
+
+yt-dlp --js-runtime node --cookies "/home/app/cookies/youtube.txt" --dateafter now-3years --print '%(upload_date)s\t%(id)s\t%(title)s' "ytsearchdate50:van damme"
+
+yt-dlp --js-runtime node --cookies "/home/app/cookies/youtube.txt" --dateafter now-3years --playlist-reverse --print '%(upload_date)s\t%(id)s\t%(title)s' "ytsearchdate100:van damme"  
+
+
+
+yt-dlp --js-runtime node --cookies "/home/app/cookies/youtube.txt" --dateafter now-10years --print '%(upload_date)s\t%(id)s\t%(title)s' "ytsearchdate100:rammstein concert"  
+
+yt-dlp --js-runtime node --cookies "/home/app/cookies/youtube.txt" --dateafter now-10years --print '%(upload_date)s\t%(id)s\t%(title)s' "ytsearchdate1000:intitle:\"rammstein concert\""
+
+
+--match-filter "title ~= /(?i)\bvan damme\b/"
+ --playlist-reverse 
+ 
+  & title ~= '(?i)\brammstein concert\b'
+
+yt-dlp --js-runtime node --cookies "/home/app/cookies/youtube.txt" --dateafter now-30years --match-filter "duration >= 1200" --print '%(upload_date)s	%(duration_string)s	%(id)s	%(title)s' "ytsearchdate10000:intitle:\"concert rammstein\""
+yt-dlp --js-runtime node --cookies "/home/app/cookies/youtube.txt" --dateafter now-30years --print '%(upload_date)s	%(duration_string)s	%(id)s	%(title)s' "ytsearchdate1000:intitle:\"concert rammstein\" long"
+
+yt-dlp --js-runtime node --cookies "/home/app/cookies/youtube.txt" --dateafter now-30years --match-filter "duration >= 1200" --print '%(upload_date)s	%(duration_string)s	%(id)s	%(title)s	%(description)s' --parse-metadata "description:(?s)(?P<description>.+)" --replace-in-metadata "description" "[\n\r]+" " " "ytsearchdate3000:intitle:\"concert rammstein\""
+
+
+// LIST-FORMATS
+
+yt-dlp -vU --cookies /home/app/cookies/youtube.txt  --js-runtimes node --list-formats wG0kHWoh3Ms "https://www.youtube.com/watch?v=wG0kHWoh3Ms"
+yt-dlp -vU --js-runtime node --cookies /home/app/cookies/youtube.txt --list-formats e4Pto7KN604
+yt-dlp --list-formats "https://www.youtube.com/watch?v=wG0kHWoh3Ms"
+
+yt-dlp -vU --js-runtime node --cookies /home/app/cookies/youtube.txt --list-formats jpFMVzCmMTw --dump-json
+yt-dlp --js-runtime node --cookies /home/app/cookies/youtube.txt jpFMVzCmMTw --dump-json
