@@ -1,30 +1,97 @@
-<p>file-quality-picker works!</p>
-<h2>Files Download</h2>
+<section>
+  <h2>Manifest Viewer</h2>
 
-<input type="text" [(ngModel)]="resourceId" placeholder="Enter ID">
-<button (click)="fetchAvManifest()">Fetch Manifests</button>
+  <div>
+    <input type="text" [(ngModel)]="resourceId" placeholder="Enter video ID or URL" />
+    <button type="button" (click)="fetchAvManifest()">Fetch manifest</button>
+  </div>
 
-<h3>Streams</h3>
+  <article *ngIf="avManifest as manifest">
+    <h3>{{ manifest.title }}</h3>
 
-<app-checkbox-list #checkboxList1
-  [items]="videoStreams" listTitle="Video Streams by Quality"
-  (selectedItemsChange)="onSelectedVStreamsChange($event)">
-</app-checkbox-list>
+    <div *ngIf="manifest.thumbnail">
+      <img [src]="manifest.thumbnail" [alt]="manifest.title" width="240" />
+    </div>
 
-<app-checkbox-list #checkboxList2
-  [items]="audioStreams" listTitle="Audio Streams by Quality"
-  (selectedItemsChange)="onSelectedAStreamsChange($event)">
-</app-checkbox-list>
+    <p><strong>Video:</strong> <a [href]="manifest.url" target="_blank" rel="noopener">{{ manifest.url }}</a></p>
+    <p><strong>Channel:</strong> {{ manifest.channel || manifest.uploader || '-' }}</p>
+    <p><strong>Duration:</strong> {{ formatDuration(manifest.duration) }}</p>
+    <p><strong>Views:</strong> {{ formatViews(manifest.viewCount) }}</p>
+    <p *ngIf="manifest.description"><strong>Description:</strong> {{ manifest.description }}</p>
 
-<p>A Items in Parent: {{ selectedAudioStreamsHashIds.join(' \n ') + "\<br />------------------------------------------------"}}</p>
-<p>V Items in Parent: {{ selectedVideoStreamsHashIds.join(' \n ') + "\<br />-----------------------------------------------"}}</p>
+    <div>
+      <h4>Audio formats</h4>
+      <table *ngIf="audioStreams.length > 0">
+        <thead>
+          <tr>
+            <th>Select</th>
+            <th>Format</th>
+            <th>Note</th>
+            <th>Codec</th>
+            <th>Bitrate</th>
+            <th>Size</th>
+            <th>Language</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let stream of audioStreams">
+            <td>
+              <input
+                type="checkbox"
+                [checked]="isSelected(stream.hashId)"
+                (change)="toggleAudioStream(stream.hashId, $any($event.target).checked)" />
+            </td>
+            <td>{{ stream.formatId }}</td>
+            <td>{{ stream.formatNote || '-' }}</td>
+            <td>{{ stream.audioCodec }}</td>
+            <td>{{ stream.bitrate || '-' }}</td>
+            <td>{{ stream.size || '-' }}</td>
+            <td>{{ stream.audioLanguage || '-' }}</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
 
-<button (click)="downloadStreams()">Start Downloads</button>
+    <div>
+      <h4>Video formats</h4>
+      <table *ngIf="videoStreams.length > 0">
+        <thead>
+          <tr>
+            <th>Select</th>
+            <th>Format</th>
+            <th>Note</th>
+            <th>Quality</th>
+            <th>Resolution</th>
+            <th>Codec</th>
+            <th>Bitrate</th>
+            <th>Size</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let stream of videoStreams">
+            <td>
+              <input
+                type="checkbox"
+                [checked]="isSelected(stream.hashId)"
+                (change)="toggleVideoStream(stream.hashId, $any($event.target).checked)" />
+            </td>
+            <td>{{ stream.formatId }}</td>
+            <td>{{ stream.formatNote || '-' }}</td>
+            <td>{{ stream.videoQuality || '-' }}</td>
+            <td>{{ stream.videoResolution || '-' }}</td>
+            <td>{{ stream.videoCodec }}</td>
+            <td>{{ stream.bitrate || '-' }}</td>
+            <td>{{ stream.size || '-' }}</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
 
-<div *ngIf="downloading">Downloading...</div>
-<div *ngIf="downloadInitSuccess">Downloading initilized</div>
-<div *ngIf="downloadError">{{ downloadError }}</div>
-<div *ngIf="downloadComplete">Downloads Complete</div>
+    <button type="button" (click)="downloadStreams()">Start Downloads</button>
 
-<p>All audio Items in Parent: {{ audioStreamFriendlyNames.join('\<br />') }}</p>
-<p>All video Items in Parent: {{ videoStreamFriendlyNames.join('\<br />') }}</p>
+    <div *ngIf="downloading">Downloading...</div>
+    <div *ngIf="downloadInitSuccess">Downloading initialized</div>
+    <div *ngIf="downloadError">{{ downloadError }}</div>
+    <div *ngIf="downloadComplete">Downloads Complete</div>
+  </article>
+</section>
