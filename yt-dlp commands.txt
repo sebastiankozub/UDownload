@@ -1,9 +1,15 @@
 
+// DOWNLOAD
+
+
 yt-dlp --js-runtime node --cookies /home/app/cookies/youtube.txt
 
 
-yt-dlp -vU --js-runtime node  --cookies /home/app/cookies/youtube.txt -f bv -o '/home/app/downloads/%(title)s.%(id)s.video.%(ext)s' e4Pto7KN604
+yt-dlp -vU --js-runtime node  --cookies /home/app/cookies/youtube.txt -f bv+ba -o '/home/app/downloads/%(title)s.%(id)s.video.%(ext)s' TRx2PHROHpc
 yt-dlp  --cookies /home/app/cookies/youtube.txt -f best -o '/home/app/downloads/%(title)s.%(id)s.audio.%(ext)s' wG0kHWoh3Ms
+
+
+
 
 
 // SEARCH, filter, sort
@@ -21,7 +27,7 @@ yt-dlp --js-runtime node --cookies "/home/app/cookies/youtube.txt" --dateafter n
 
 yt-dlp --js-runtime node --cookies "/home/app/cookies/youtube.txt" --dateafter now-10years --print '%(upload_date)s\t%(id)s\t%(title)s' "ytsearchdate100:rammstein concert"  
 
-yt-dlp --js-runtime node --cookies "/home/app/cookies/youtube.txt" --dateafter now-10years --print '%(upload_date)s\t%(id)s\t%(title)s' "ytsearchdate1000:intitle:\"rammstein concert\""
+yt-dlp --js-runtime node --cookies "/home/app/cookies/youtube.txt" --dateafter now-20years --print '%(upload_date)s\t%(id)s\t%(title)s' "ytsearchdate1000:intitle:\"rammstein concert\""
 
 
 --match-filter "title ~= /(?i)\bvan damme\b/"
@@ -29,10 +35,22 @@ yt-dlp --js-runtime node --cookies "/home/app/cookies/youtube.txt" --dateafter n
  
   & title ~= '(?i)\brammstein concert\b'
 
-yt-dlp --js-runtime node --cookies "/home/app/cookies/youtube.txt" --dateafter now-30years --match-filter "duration >= 1200" --print '%(upload_date)s	%(duration_string)s	%(id)s	%(title)s' "ytsearchdate10000:intitle:\"concert rammstein\""
+yt-dlp --js-runtime node --cookies "/home/app/cookies/youtube.txt" --dateafter now-20years --match-filter "duration >= 1800" --print '%(upload_date)s	%(duration_string)s	%(id)s	%(title)s' "ytsearchdate8000:intitle:\"rammstein concert\""
 yt-dlp --js-runtime node --cookies "/home/app/cookies/youtube.txt" --dateafter now-30years --print '%(upload_date)s	%(duration_string)s	%(id)s	%(title)s' "ytsearchdate1000:intitle:\"concert rammstein\" long"
 
 yt-dlp --js-runtime node --cookies "/home/app/cookies/youtube.txt" --dateafter now-30years --match-filter "duration >= 1200" --print '%(upload_date)s	%(duration_string)s	%(id)s	%(title)s	%(description)s' --parse-metadata "description:(?s)(?P<description>.+)" --replace-in-metadata "description" "[\n\r]+" " " "ytsearchdate3000:intitle:\"concert rammstein\""
+
+yt-dlp --js-runtime node --cookies "/home/app/cookies/youtube.txt" \
+--dateafter now-30years \
+--match-filter "duration >= 1200" \
+--print '%(upload_date)s\t%(duration_string)s\t%(id)s\t%(title)s\t%(description)s' \
+--parse-metadata "description:(?s)(?P<description>.+)" \
+--replace-in-metadata "description" "[\n\r]+" " " \
+"ytsearchdate1000:intitle:\"concert rammstein\""
+
+
+
+
 
 
 // LIST-FORMATS
