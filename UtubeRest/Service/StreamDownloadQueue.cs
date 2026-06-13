@@ -5,8 +5,8 @@ namespace UtubeRest.Service;
 public sealed record QueuedStreamDownloadRequest(
     string JobId,
     string VideoId,
-    string AudioHashId,
-    string VideoHashId);
+    string AudioFormatId,
+    string VideoFormatId);
 
 public interface IStreamDownloadQueue
 {

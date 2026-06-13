@@ -59,8 +59,8 @@ export class FileQualityPickerComponent {
   audioStreams: AudioStream[] = [];
   avManifest?: AvManifest;
 
-  selectedVideoStreamsHashIds: string[] = [];
-  selectedAudioStreamsHashIds: string[] = [];
+  selectedVideoFormatIds: string[] = [];
+  selectedAudioFormatIds: string[] = [];
 
   constructor(
     private utubeService: UtubeApiService,
@@ -102,31 +102,34 @@ export class FileQualityPickerComponent {
           friendlyName: this.buildVideoFriendlyName(stream),
         }));
 
-        this.selectedAudioStreamsHashIds = [];
-        this.selectedVideoStreamsHashIds = [];
+        this.selectedAudioFormatIds = [];
+        this.selectedVideoFormatIds = [];
         this.avManifest = manifest;
       }, error => {
         this.downloadError = error?.error?.detail ?? 'Failed to fetch manifest.';
       });
   }
 
-  toggleAudioStream(hashId: string, checked: boolean) {
+  toggleAudioStream(formatId: string, checked: boolean) {
     this.downloadError = null;
     this.downloadInitSuccess = false;
-    this.selectedAudioStreamsHashIds = checked ? [hashId] : [];
+    this.selectedAudioFormatIds = checked ? [formatId] : [];
     this.tryStartDownload();
   }
 
-  toggleVideoStream(hashId: string, checked: boolean) {
+  toggleVideoStream(formatId: string, checked: boolean) {
     this.downloadError = null;
     this.downloadInitSuccess = false;
-    this.selectedVideoStreamsHashIds = checked ? [hashId] : [];
+    this.selectedVideoFormatIds = checked ? [formatId] : [];
     this.tryStartDownload();
   }
 
-  isSelected(hashId: string): boolean {
-    return this.selectedAudioStreamsHashIds.includes(hashId)
-      || this.selectedVideoStreamsHashIds.includes(hashId);
+  isAudioSelected(formatId: string): boolean {
+    return this.selectedAudioFormatIds.includes(formatId);
+  }
+
+  isVideoSelected(formatId: string): boolean {
+    return this.selectedVideoFormatIds.includes(formatId);
   }
 
   async downloadStreams() {
@@ -210,7 +213,7 @@ export class FileQualityPickerComponent {
   }
 
   private tryStartDownload() {
-    if (this.selectedAudioStreamsHashIds.length === 1 && this.selectedVideoStreamsHashIds.length === 1) {
+    if (this.selectedAudioFormatIds.length === 1 && this.selectedVideoFormatIds.length === 1) {
       void this.downloadStreams();
     }
   }
@@ -219,23 +222,23 @@ export class FileQualityPickerComponent {
     const videoId = this.avManifest?.id ?? this.resourceId.trim();
 
     if (!videoId
-      || this.selectedAudioStreamsHashIds.length !== 1
-      || this.selectedVideoStreamsHashIds.length !== 1) {
+      || this.selectedAudioFormatIds.length !== 1
+      || this.selectedVideoFormatIds.length !== 1) {
       return null;
     }
 
     return {
       videoId,
-      audioHashIds: [...this.selectedAudioStreamsHashIds],
-      videoHashIds: [...this.selectedVideoStreamsHashIds],
+      audioFormatIds: [...this.selectedAudioFormatIds],
+      videoFormatIds: [...this.selectedVideoFormatIds],
     };
   }
 
   private buildSelectionKey(request: StreamImportRequest): string {
     return [
       request.videoId,
-      request.audioHashIds[0],
-      request.videoHashIds[0],
+      request.audioFormatIds[0],
+      request.videoFormatIds[0],
     ].join(':');
   }
 }

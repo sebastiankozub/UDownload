@@ -128,13 +128,25 @@ namespace UtubeRest.Service
             return MapManifest(manifest);
         }
 
-        public async Task DownloadBestAudioVideoAsync(string videoIdOrUrl, CancellationToken cancellationToken = default)
+        public async Task DownloadSelectedFormatsAsync(
+            string videoIdOrUrl,
+            string videoFormatId,
+            string audioFormatId,
+            CancellationToken cancellationToken = default)
         {
+            if (string.IsNullOrWhiteSpace(videoFormatId))
+            {
+                throw new ArgumentException("Video format ID is required.", nameof(videoFormatId));
+            }
+
+            if (string.IsNullOrWhiteSpace(audioFormatId))
+            {
+                throw new ArgumentException("Audio format ID is required.", nameof(audioFormatId));
+            }
+
             var url = NormalizeToYoutubeUrl(videoIdOrUrl);
             const string outputTemplate = "/home/app/downloads/%(title)s.%(id)s.%(ext)s";
-            const string formatSelector = "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best";
-
-            //const string common = $"{cookiesParam} --rate-limit 2M --sleep-requests 1 --min-sleep-interval 1 --max-sleep-interval 3 --retries 6 --fragment-retries 6";
+            var formatSelector = $"{videoFormatId}+{audioFormatId}";
 
             var command = $"yt-dlp {BuildCommonArgs()} -f {ShellQuote(formatSelector)} -o {ShellQuote(outputTemplate)} {ShellQuote(url)}".Trim();
             var result = await RunUnixCommandWithResultAsync(command, cancellationToken);
@@ -148,8 +160,10 @@ namespace UtubeRest.Service
             if (!string.IsNullOrWhiteSpace(result.Output))
             {
                 _logger.LogInformation(
-                    "yt-dlp completed for {VideoIdOrUrl}:{NewLine}{Output}",
+                    "yt-dlp completed for {VideoIdOrUrl} with video format {VideoFormatId} and audio format {AudioFormatId}:{NewLine}{Output}",
                     videoIdOrUrl,
+                    videoFormatId,
+                    audioFormatId,
                     Environment.NewLine,
                     result.Output);
             }
@@ -209,11 +223,27 @@ namespace UtubeRest.Service
 
         private string BuildManifestCommand(string url)
         {
-            var param = BuildCommonArgsSimple();
+            var param = BuildManifestArgs();
             var jsRuntime = "--js-runtime node";
             //--dump-json, and add --flat-playlist
             //return $"yt-dlp {jsRuntime} {param} --no-progress --no-warnings --no-playlist --print-json {ShellQuote(url)}".Trim();
             return $"yt-dlp {jsRuntime} {param} --no-progress --no-warnings --no-playlist --dump-json {ShellQuote(url)}".Trim();
+        }
+
+        private string BuildManifestArgs()
+        {
+            var sb = new StringBuilder();
+
+            if (_ytDlpOptions.UseCookies && !string.IsNullOrEmpty(_ytDlpOptions.CookiesFilePath) && File.Exists(_ytDlpOptions.CookiesFilePath))
+                sb.Append($" --cookies {ShellQuote(_ytDlpOptions.CookiesFilePath)}");
+
+            if (!string.IsNullOrWhiteSpace(_ytDlpOptions.UserAgent))
+                sb.Append($" --user-agent {ShellQuote(_ytDlpOptions.UserAgent)}");
+
+            if (!string.IsNullOrWhiteSpace(_ytDlpOptions.ExtractorArgs))
+                sb.Append($" --extractor-args {ShellQuote(_ytDlpOptions.ExtractorArgs)}");
+
+            return sb.ToString();
         }
 
         private async Task<(string Output, string Error)> RunCommandCaptureAsync(string command, CancellationToken cancellationToken = default)
@@ -273,12 +303,17 @@ namespace UtubeRest.Service
 
         private static bool IsAudioOnlyFormat(AvYtFormatManifest format)
         {
-            return !IsNone(format.Acodec) && IsNone(format.Vcodec);
+            return HasDownloadUrl(format) && !IsNone(format.Acodec) && IsNone(format.Vcodec);
         }
 
         private static bool HasVideo(AvYtFormatManifest format)
         {
-            return !IsNone(format.Vcodec);
+            return HasDownloadUrl(format) && !IsNone(format.Vcodec);
+        }
+
+        private static bool HasDownloadUrl(AvYtFormatManifest format)
+        {
+            return !string.IsNullOrWhiteSpace(format.Url);
         }
 
         private static bool IsNone(string? codec)

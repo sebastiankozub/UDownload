@@ -39,11 +39,17 @@ public sealed class StreamDownloadBackgroundService : BackgroundService
                 var ytService = scope.ServiceProvider.GetRequiredService<YtService>();
 
                 _logger.LogInformation(
-                    "Starting queued download {JobId} for {VideoId}.",
+                    "Starting queued download {JobId} for {VideoId} with video format {VideoFormatId} and audio format {AudioFormatId}.",
                     request.JobId,
-                    request.VideoId);
+                    request.VideoId,
+                    request.VideoFormatId,
+                    request.AudioFormatId);
 
-                await ytService.DownloadBestAudioVideoAsync(request.VideoId, stoppingToken);
+                await ytService.DownloadSelectedFormatsAsync(
+                    request.VideoId,
+                    request.VideoFormatId,
+                    request.AudioFormatId,
+                    stoppingToken);
 
                 _logger.LogInformation(
                     "Completed queued download {JobId} for {VideoId}.",
@@ -58,11 +64,11 @@ public sealed class StreamDownloadBackgroundService : BackgroundService
             {
                 _logger.LogError(
                     ex,
-                    "Queued download {JobId} failed for {VideoId}. Selected audio hash {AudioHashId}, video hash {VideoHashId}.",
+                    "Queued download {JobId} failed for {VideoId}. Selected audio format {AudioFormatId}, video format {VideoFormatId}.",
                     request.JobId,
                     request.VideoId,
-                    request.AudioHashId,
-                    request.VideoHashId);
+                    request.AudioFormatId,
+                    request.VideoFormatId);
             }
         }
     }

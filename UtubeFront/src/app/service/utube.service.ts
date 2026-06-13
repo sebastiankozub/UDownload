@@ -4,8 +4,8 @@ import { Observable } from 'rxjs';
 
 export interface StreamImportRequest {
   videoId: string;
-  audioHashIds: string[];
-  videoHashIds: string[];
+  audioFormatIds: string[];
+  videoFormatIds: string[];
 }
 
 @Injectable({

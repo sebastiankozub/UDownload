@@ -27,12 +27,12 @@ public class StreamStorageController : ControllerBase
             return BadRequest("VideoId is required.");
         }
 
-        if (request.AudioHashIds.Count != 1)
+        if (request.AudioFormatIds.Count != 1)
         {
             return BadRequest("Exactly one audio stream must be selected.");
         }
 
-        if (request.VideoHashIds.Count != 1)
+        if (request.VideoFormatIds.Count != 1)
         {
             return BadRequest("Exactly one video stream must be selected.");
         }
@@ -43,8 +43,8 @@ public class StreamStorageController : ControllerBase
             new QueuedStreamDownloadRequest(
                 jobId,
                 request.VideoId,
-                request.AudioHashIds[0],
-                request.VideoHashIds[0]),
+                request.AudioFormatIds[0],
+                request.VideoFormatIds[0]),
             cancellationToken);
 
         return Accepted(new
@@ -92,6 +92,6 @@ public class StreamStorageController : ControllerBase
 public sealed class StreamImportRequest
 {
     public string VideoId { get; set; } = string.Empty;
-    public List<string> AudioHashIds { get; set; } = [];
-    public List<string> VideoHashIds { get; set; } = [];
+    public List<string> AudioFormatIds { get; set; } = [];
+    public List<string> VideoFormatIds { get; set; } = [];
 }

@@ -39,8 +39,8 @@
             <td>
               <input
                 type="checkbox"
-                [checked]="isSelected(stream.hashId)"
-                (change)="toggleAudioStream(stream.hashId, $any($event.target).checked)" />
+                [checked]="isAudioSelected(stream.formatId)"
+                (change)="toggleAudioStream(stream.formatId, $any($event.target).checked)" />
             </td>
             <td>{{ stream.formatId }}</td>
             <td>{{ stream.formatNote || '-' }}</td>
@@ -73,8 +73,8 @@
             <td>
               <input
                 type="checkbox"
-                [checked]="isSelected(stream.hashId)"
-                (change)="toggleVideoStream(stream.hashId, $any($event.target).checked)" />
+                [checked]="isVideoSelected(stream.formatId)"
+                (change)="toggleVideoStream(stream.formatId, $any($event.target).checked)" />
             </td>
             <td>{{ stream.formatId }}</td>
             <td>{{ stream.formatNote || '-' }}</td>

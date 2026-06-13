@@ -10,7 +10,7 @@ namespace UtubeRest.Options
         public string? RateLimit { get; set; } = "2M";
         public int SleepRequestsSeconds { get; set; } = 1;
         public int MaxSleepIntervalSeconds { get; set; } = 3;
-        public string? ExtractorArgs { get; set; } = "youtube:player_client=android";
+        public string? ExtractorArgs { get; set; }
         public int Retries { get; set; } = 6;
         public int FragmentRetries { get; set; } = 6;
     }
