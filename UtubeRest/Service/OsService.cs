@@ -3,6 +3,8 @@ using System.Text;
 
 namespace UtubeRest.Service
 {
+    public sealed record CommandExecutionResult(int ExitCode, string Output, string Error);
+
     public class OsService
     {
 
@@ -26,16 +28,8 @@ namespace UtubeRest.Service
 
         public async static Task<string> RunUnixCommandAsync(string command)
         {
-            var sbOutput = new StringBuilder();
-            await RunUnixCommandStreamingAsync(
-                command,
-                line =>
-                {
-                    sbOutput.AppendLine(line);
-                    return Task.CompletedTask;
-                });
-
-            return sbOutput.ToString();
+            var result = await RunUnixCommandWithResultAsync(command);
+            return result.Output;
         }
 
         public async static Task RunUnixCommandAsync(string command, StreamWriter outputStreamWriter, StreamWriter errorStreamWriter)
@@ -84,6 +78,60 @@ namespace UtubeRest.Service
                     process.Kill(entireProcessTree: true);
                 }
             }
+        }
+
+        public async static Task<CommandExecutionResult> RunUnixCommandWithResultAsync(
+            string command,
+            CancellationToken cancellationToken = default)
+        {
+            var outputBuilder = new StringBuilder();
+            var errorBuilder = new StringBuilder();
+
+            using var process = new Process();
+            process.StartInfo.FileName = "/bin/bash";
+            process.StartInfo.ArgumentList.Add("-c");
+            process.StartInfo.ArgumentList.Add(command);
+            process.StartInfo.UseShellExecute = false;
+            process.StartInfo.RedirectStandardOutput = true;
+            process.StartInfo.RedirectStandardError = true;
+
+            using var timeoutSignal = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            timeoutSignal.CancelAfter(TimeSpan.FromSeconds(240));
+
+            process.Start();
+
+            try
+            {
+                await Task.WhenAll(
+                    process.WaitForExitAsync(timeoutSignal.Token),
+                    PumpReaderAsync(
+                        process.StandardOutput,
+                        line =>
+                        {
+                            outputBuilder.AppendLine(line);
+                            return Task.CompletedTask;
+                        },
+                        timeoutSignal.Token),
+                    PumpReaderAsync(
+                        process.StandardError,
+                        line =>
+                        {
+                            errorBuilder.AppendLine(line);
+                            return Task.CompletedTask;
+                        },
+                        timeoutSignal.Token));
+            }
+            catch (OperationCanceledException)
+            {
+                if (!process.HasExited)
+                {
+                    process.Kill(entireProcessTree: true);
+                }
+
+                throw;
+            }
+
+            return new CommandExecutionResult(process.ExitCode, outputBuilder.ToString(), errorBuilder.ToString());
         }
 
         private static async Task PumpReaderAsync(

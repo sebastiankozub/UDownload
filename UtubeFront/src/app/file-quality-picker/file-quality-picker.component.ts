@@ -1,6 +1,6 @@
 import { Component } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
-import { UtubeApiService } from '../service/utube.service';
+import { StreamImportRequest, UtubeApiService } from '../service/utube.service';
 
 export interface AvManifest {
   id: string;
@@ -52,6 +52,7 @@ export class FileQualityPickerComponent {
   downloadError: string | null = null;
   downloadComplete = false;
   downloadInitSuccess = false;
+  private lastQueuedSelectionKey: string | null = null;
 
   resourceId = '';
   videoStreams: VideoStream[] = [];
@@ -81,6 +82,10 @@ export class FileQualityPickerComponent {
     }
 
     this.downloadError = null;
+    this.downloadInitSuccess = false;
+    this.downloadComplete = false;
+    this.downloading = false;
+    this.lastQueuedSelectionKey = null;
     this.avManifest = undefined;
     this.audioStreams = [];
     this.videoStreams = [];
@@ -106,15 +111,17 @@ export class FileQualityPickerComponent {
   }
 
   toggleAudioStream(hashId: string, checked: boolean) {
-    this.selectedAudioStreamsHashIds = checked
-      ? [...this.selectedAudioStreamsHashIds, hashId]
-      : this.selectedAudioStreamsHashIds.filter(id => id !== hashId);
+    this.downloadError = null;
+    this.downloadInitSuccess = false;
+    this.selectedAudioStreamsHashIds = checked ? [hashId] : [];
+    this.tryStartDownload();
   }
 
   toggleVideoStream(hashId: string, checked: boolean) {
-    this.selectedVideoStreamsHashIds = checked
-      ? [...this.selectedVideoStreamsHashIds, hashId]
-      : this.selectedVideoStreamsHashIds.filter(id => id !== hashId);
+    this.downloadError = null;
+    this.downloadInitSuccess = false;
+    this.selectedVideoStreamsHashIds = checked ? [hashId] : [];
+    this.tryStartDownload();
   }
 
   isSelected(hashId: string): boolean {
@@ -123,22 +130,35 @@ export class FileQualityPickerComponent {
   }
 
   async downloadStreams() {
-    const allSelectedStreams = [...this.selectedAudioStreamsHashIds, ...this.selectedVideoStreamsHashIds];
-
-    if (!allSelectedStreams.length) {
-      console.warn('No streams selected for download.');
+    const request = this.buildDownloadRequest();
+    if (!request) {
+      this.downloadError = 'Select exactly one audio stream and one video stream.';
       return;
     }
 
-    this.utubeService.postDownload(allSelectedStreams)
+    const selectionKey = this.buildSelectionKey(request);
+    if (this.downloading || this.lastQueuedSelectionKey === selectionKey) {
+      return;
+    }
+
+    this.downloading = true;
+    this.downloadError = null;
+    this.downloadInitSuccess = false;
+
+    this.utubeService.postDownload(request)
       .subscribe({
         next: (response) => {
+          this.downloading = false;
           this.downloadInitSuccess = true;
+          this.lastQueuedSelectionKey = selectionKey;
           console.log('Download initiated:', response);
         },
         error: (error) => {
+          this.downloading = false;
           console.error('Error initiating download:', error);
-          this.downloadError = error;
+          this.downloadError = error?.error?.detail
+            ?? error?.error?.title
+            ?? 'Failed to queue download.';
         }
       });
   }
@@ -187,5 +207,35 @@ export class FileQualityPickerComponent {
       stream.bitrate,
       stream.size,
     ].filter(Boolean).join(' | ');
+  }
+
+  private tryStartDownload() {
+    if (this.selectedAudioStreamsHashIds.length === 1 && this.selectedVideoStreamsHashIds.length === 1) {
+      void this.downloadStreams();
+    }
+  }
+
+  private buildDownloadRequest(): StreamImportRequest | null {
+    const videoId = this.avManifest?.id ?? this.resourceId.trim();
+
+    if (!videoId
+      || this.selectedAudioStreamsHashIds.length !== 1
+      || this.selectedVideoStreamsHashIds.length !== 1) {
+      return null;
+    }
+
+    return {
+      videoId,
+      audioHashIds: [...this.selectedAudioStreamsHashIds],
+      videoHashIds: [...this.selectedVideoStreamsHashIds],
+    };
+  }
+
+  private buildSelectionKey(request: StreamImportRequest): string {
+    return [
+      request.videoId,
+      request.audioHashIds[0],
+      request.videoHashIds[0],
+    ].join(':');
   }
 }

@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using UtubeRest.Options;
 using UtubeRest.ViewModel;
@@ -16,10 +17,12 @@ namespace UtubeRest.Service
         };
 
         private readonly YtDlpOptions _ytDlpOptions;
+        private readonly ILogger<YtService> _logger;
 
-        public YtService(IOptions<YtDlpOptions> ytDlpOptions)
+        public YtService(IOptions<YtDlpOptions> ytDlpOptions, ILogger<YtService> logger)
         {
             _ytDlpOptions = ytDlpOptions.Value;
+            _logger = logger;
         }
 
         public string GetCookiesParameterPublic()
@@ -125,6 +128,33 @@ namespace UtubeRest.Service
             return MapManifest(manifest);
         }
 
+        public async Task DownloadBestAudioVideoAsync(string videoIdOrUrl, CancellationToken cancellationToken = default)
+        {
+            var url = NormalizeToYoutubeUrl(videoIdOrUrl);
+            const string outputTemplate = "/home/app/downloads/%(title)s.%(id)s.%(ext)s";
+            const string formatSelector = "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best";
+
+            //const string common = $"{cookiesParam} --rate-limit 2M --sleep-requests 1 --min-sleep-interval 1 --max-sleep-interval 3 --retries 6 --fragment-retries 6";
+
+            var command = $"yt-dlp {BuildCommonArgs()} -f {ShellQuote(formatSelector)} -o {ShellQuote(outputTemplate)} {ShellQuote(url)}".Trim();
+            var result = await RunUnixCommandWithResultAsync(command, cancellationToken);
+
+            if (result.ExitCode != 0)
+            {
+                throw new InvalidOperationException(
+                    $"yt-dlp download failed for {url}. {result.Error}".Trim());
+            }
+
+            if (!string.IsNullOrWhiteSpace(result.Output))
+            {
+                _logger.LogInformation(
+                    "yt-dlp completed for {VideoIdOrUrl}:{NewLine}{Output}",
+                    videoIdOrUrl,
+                    Environment.NewLine,
+                    result.Output);
+            }
+        }
+
         private string BuildCommonArgs()
         {
             var sb = new StringBuilder();
@@ -139,7 +169,8 @@ namespace UtubeRest.Service
                 sb.Append($" --rate-limit {_ytDlpOptions.RateLimit}");
 
             if (_ytDlpOptions.SleepRequestsSeconds > 0)
-                sb.Append($" --sleep-requests {_ytDlpOptions.SleepRequestsSeconds} --max-sleep-interval {_ytDlpOptions.MaxSleepIntervalSeconds}");
+                sb.Append($" --sleep-requests {_ytDlpOptions.SleepRequestsSeconds}");
+                //sb.Append($" --sleep-requests {_ytDlpOptions.SleepRequestsSeconds} --max-sleep-interval {_ytDlpOptions.MaxSleepIntervalSeconds}");
 
             if (!string.IsNullOrWhiteSpace(_ytDlpOptions.ExtractorArgs))
                 sb.Append($" --extractor-args {ShellQuote(_ytDlpOptions.ExtractorArgs)}");
@@ -187,24 +218,8 @@ namespace UtubeRest.Service
 
         private async Task<(string Output, string Error)> RunCommandCaptureAsync(string command, CancellationToken cancellationToken = default)
         {
-            var outputBuilder = new StringBuilder();
-            var errorBuilder = new StringBuilder();
-
-            await RunUnixCommandStreamingAsync(
-                command,
-                line =>
-                {
-                    outputBuilder.AppendLine(line);
-                    return Task.CompletedTask;
-                },
-                line =>
-                {
-                    errorBuilder.AppendLine(line);
-                    return Task.CompletedTask;
-                },
-                cancellationToken);
-
-            return (outputBuilder.ToString(), errorBuilder.ToString());
+            var result = await RunUnixCommandWithResultAsync(command, cancellationToken);
+            return (result.Output, result.Error);
         }
 
         private static SearchResult? ParseSearchResult(string line)

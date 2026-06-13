@@ -2,6 +2,12 @@ import { HttpClient } from '@angular/common/http';
 import { Injectable } from '@angular/core';
 import { Observable } from 'rxjs';
 
+export interface StreamImportRequest {
+  videoId: string;
+  audioHashIds: string[];
+  videoHashIds: string[];
+}
+
 @Injectable({
   providedIn: 'root'
 })
@@ -15,8 +21,8 @@ export class UtubeApiService {
     return this.http.get(`${this.baseUrl}/${endpoint}`);
   }
 
-  postDownload(hashes: string[]): Observable<any> {
-    return this.http.post<any>(`${this.baseUrl}/StreamStorage/Import`, hashes);
+  postDownload(request: StreamImportRequest): Observable<any> {
+    return this.http.post<any>(`${this.baseUrl}/StreamStorage/Import`, request);
   }
 
   fetchManifest(videoId: string): Observable<any> {

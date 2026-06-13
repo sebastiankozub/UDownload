@@ -1,6 +1,5 @@
 ﻿using Microsoft.AspNetCore.Mvc;
-using System.Text;
-using UtubeRest.Data;
+using UtubeRest.Service;
 
 // https://go.microsoft.com/fwlink/?LinkID=397860
 
@@ -10,35 +9,50 @@ namespace UtubeRest.Controllers;
 [ApiController]
 public class StreamStorageController : ControllerBase
 {
-    private readonly ITableRepository<TriggerDownloadEntity> _triggerDownloadRepository;
+    private readonly IStreamDownloadQueue _streamDownloadQueue;
 
-    public StreamStorageController(ITableRepository<TriggerDownloadEntity> triggerDownloadRepository)
+    public StreamStorageController(IStreamDownloadQueue streamDownloadQueue)
     {
-        _triggerDownloadRepository = triggerDownloadRepository;
+        _streamDownloadQueue = streamDownloadQueue;
     }
 
 
 
     // POST api/<StreamStorageController>/Import
     [HttpPost("Import")]
-    public async Task<IActionResult> PostImport([FromBody] string[] hashIds)
+    public async Task<IActionResult> PostImport([FromBody] StreamImportRequest request, CancellationToken cancellationToken)
     {
-        // create job id
-        var jobId = Guid.NewGuid().ToString();
+        if (string.IsNullOrWhiteSpace(request.VideoId))
+        {
+            return BadRequest("VideoId is required.");
+        }
 
-        // table storage stream-import-jobs - job id + hashes
+        if (request.AudioHashIds.Count != 1)
+        {
+            return BadRequest("Exactly one audio stream must be selected.");
+        }
 
+        if (request.VideoHashIds.Count != 1)
+        {
+            return BadRequest("Exactly one video stream must be selected.");
+        }
 
+        var jobId = Guid.NewGuid().ToString("N");
 
-        // table storage stream-import-status - hash + status=queued
+        await _streamDownloadQueue.QueueAsync(
+            new QueuedStreamDownloadRequest(
+                jobId,
+                request.VideoId,
+                request.AudioHashIds[0],
+                request.VideoHashIds[0]),
+            cancellationToken);
 
-        string rawContent = string.Empty;
-        using var reader = new StreamReader(Request.Body, encoding: Encoding.UTF8, detectEncodingFromByteOrderMarks: false);
-        rawContent = await reader.ReadToEndAsync();
-        //push to table storage;
-        //return 202
-
-        return Accepted(); // with status location header
+        return Accepted(new
+        {
+            jobId,
+            status = "queued",
+            videoId = request.VideoId,
+        });
     }
 
 
@@ -75,3 +89,9 @@ public class StreamStorageController : ControllerBase
     //}
 }
 
+public sealed class StreamImportRequest
+{
+    public string VideoId { get; set; } = string.Empty;
+    public List<string> AudioHashIds { get; set; } = [];
+    public List<string> VideoHashIds { get; set; } = [];
+}

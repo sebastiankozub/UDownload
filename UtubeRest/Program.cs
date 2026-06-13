@@ -43,6 +43,8 @@ namespace UtubeRest
                 .Bind(builder.Configuration.GetSection("YtDlp"));
             
             builder.Services.AddTransient<YtService>();
+            builder.Services.AddSingleton<IStreamDownloadQueue, StreamDownloadQueue>();
+            builder.Services.AddHostedService<StreamDownloadBackgroundService>();
 
             // Add services to the container.
 
