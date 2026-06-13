@@ -1,11 +1,16 @@
 import { Component } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
+import { ActivatedRoute } from '@angular/router';
 import { UtubeApiService } from '../service/utube.service';
 
 export interface AvManifest {
   id: string;
   title: string;
   url: string;
+  channel?: string;
+  uploader?: string;
+  thumbnail?: string;
+  viewCount?: number;
+  duration?: number;
   uploadDate: Date;
   description: string;
   keywords: string[];
@@ -13,20 +18,22 @@ export interface AvManifest {
   videoStreams: VideoStream[];
 }
 
-export interface VideoStream extends  AvStream {  
+export interface VideoStream extends AvStream {
   videoCodec: string;
   videoQuality: string;
   videoResolution: string;
 }
 
-export interface AudioStream extends  AvStream {
+export interface AudioStream extends AvStream {
   audioCodec: string;
-  audioLanguage?: string; // Optional
-  isAudioLanguageDefault?: boolean; // Optional
+  audioLanguage?: string;
+  isAudioLanguageDefault?: boolean | string;
 }
 
 export interface AvStream {
   url: string;
+  formatId: string;
+  formatNote?: string;
   container: string;
   size: string;
   bitrate: string;
@@ -44,80 +51,78 @@ export class FileQualityPickerComponent {
   downloading = false;
   downloadError: string | null = null;
   downloadComplete = false;
-  downloadInitSuccess = false; 
+  downloadInitSuccess = false;
 
-  resourceId: string = '';
+  resourceId = '';
   videoStreams: VideoStream[] = [];
   audioStreams: AudioStream[] = [];
-  avManifest? : AvManifest;
-
-  videoStreamFriendlyNames: string[] = [];
-  audioStreamFriendlyNames: string[] = [];
+  avManifest?: AvManifest;
 
   selectedVideoStreamsHashIds: string[] = [];
   selectedAudioStreamsHashIds: string[] = [];
 
-  private baseUrl: string = 'https://localhost:7101/api';
-  
-  constructor(private utubeService: UtubeApiService, private http: HttpClient) 
-  {}
+  constructor(
+    private utubeService: UtubeApiService,
+    private route: ActivatedRoute)
+  {
+    this.route.paramMap.subscribe(params => {
+      const videoId = params.get('videoId');
+      if (videoId) {
+        this.resourceId = videoId;
+        this.fetchAvManifest();
+      }
+    });
+  }
 
   fetchAvManifest() {
-    this.http.get<AvManifest>(`${this.baseUrl}/AvManifest/${this.resourceId}`)
-      .subscribe(manifest => {
-        this.audioStreams = manifest.audioStreams;
-        this.videoStreams = manifest.videoStreams;
+    const trimmedId = this.resourceId.trim();
+    if (!trimmedId) {
+      return;
+    }
 
-        this.audioStreams = this.audioStreams.map(s => 
-        { 
-          s.friendlyName = s.audioCodec.replaceAll(' ', '') 
-          + " | "
-          + s.bitrate.replaceAll(' ', '')
-          + " | "
-          + s.size.replaceAll(' ', '');
-          return s;
-        });
+    this.downloadError = null;
+    this.avManifest = undefined;
+    this.audioStreams = [];
+    this.videoStreams = [];
 
-        this.videoStreams = this.videoStreams.map(s => 
-        { 
-          s.friendlyName = s.videoCodec.replaceAll(' ', '') 
-          + " | "
-          + s.bitrate.replaceAll(' ', '')
-          + " | "
-          + s.size.replaceAll(' ', '');
-          return s;
-        });
- 
-        this.audioStreamFriendlyNames = this.audioStreams.map(s => s.friendlyName);
-        this.videoStreamFriendlyNames = this.videoStreams.map(s => s.friendlyName);
+    this.utubeService.fetchManifest(trimmedId)
+      .subscribe((manifest: AvManifest) => {
+        this.audioStreams = manifest.audioStreams.map(stream => ({
+          ...stream,
+          friendlyName: this.buildAudioFriendlyName(stream),
+        }));
 
-        manifest.url = `https://www.youtube.com/watch?v=${manifest.id}`;
-        
+        this.videoStreams = manifest.videoStreams.map(stream => ({
+          ...stream,
+          friendlyName: this.buildVideoFriendlyName(stream),
+        }));
+
+        this.selectedAudioStreamsHashIds = [];
+        this.selectedVideoStreamsHashIds = [];
         this.avManifest = manifest;
-
-        // TODO cache manifest
+      }, error => {
+        this.downloadError = error?.error?.detail ?? 'Failed to fetch manifest.';
       });
   }
 
-  onSelectedVStreamsChange(selectedItemsHashIds: string[]) {
-    this.selectedVideoStreamsHashIds = selectedItemsHashIds;
-    console.log(selectedItemsHashIds );
-    console.log(this.selectedVideoStreamsHashIds );
+  toggleAudioStream(hashId: string, checked: boolean) {
+    this.selectedAudioStreamsHashIds = checked
+      ? [...this.selectedAudioStreamsHashIds, hashId]
+      : this.selectedAudioStreamsHashIds.filter(id => id !== hashId);
   }
 
-  onSelectedAStreamsChange(selectedItemsHashIds: string[]) {
-    this.selectedAudioStreamsHashIds = selectedItemsHashIds;
-    console.log("onSelectedAStreamsChange");
-    console.log(selectedItemsHashIds );
-    console.log(this.selectedAudioStreamsHashIds );
+  toggleVideoStream(hashId: string, checked: boolean) {
+    this.selectedVideoStreamsHashIds = checked
+      ? [...this.selectedVideoStreamsHashIds, hashId]
+      : this.selectedVideoStreamsHashIds.filter(id => id !== hashId);
   }
-  
+
+  isSelected(hashId: string): boolean {
+    return this.selectedAudioStreamsHashIds.includes(hashId)
+      || this.selectedVideoStreamsHashIds.includes(hashId);
+  }
+
   async downloadStreams() {
-    //this.downloading = true;
-    //this.downloadError = null;
-    //this.downloadComplete = false;
-
-    //const downloadPromises: Promise<any>[] = [];
     const allSelectedStreams = [...this.selectedAudioStreamsHashIds, ...this.selectedVideoStreamsHashIds];
 
     if (!allSelectedStreams.length) {
@@ -126,48 +131,61 @@ export class FileQualityPickerComponent {
     }
 
     this.utubeService.postDownload(allSelectedStreams)
-    .subscribe({
-      next: (response) => {
-        this.downloadInitSuccess = true;
-        console.log('Download initiated:', response);
-      },
-      error: (error) => {
-        console.error('Error initiating download:', error);
-        this.downloadError = error;
-      }
-    })
-    //.subscribe(
-    //   response => {
-    //     console.log('Download initiated:', response);
-    //   },
-    //   error => {
-    //     console.error('Error initiating download:', error);
-    //   }
-    // );
+      .subscribe({
+        next: (response) => {
+          this.downloadInitSuccess = true;
+          console.log('Download initiated:', response);
+        },
+        error: (error) => {
+          console.error('Error initiating download:', error);
+          this.downloadError = error;
+        }
+      });
+  }
 
+  formatDuration(seconds?: number): string {
+    if (!seconds || seconds <= 0) {
+      return '-';
+    }
 
-    // for (const streamHashId of allSelectedStreams) {
-    //   const downloadUrl = `` ; //`${process.env.AZURE_FUNCTION_URL}/download/${streamHashId}`;  // api/StreamStorage/Import
-    //   downloadPromises.push(this.http.post(downloadUrl, {}).toPromise());
-    // }
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    const remainingSeconds = seconds % 60;
 
-    // try {
-    //   await Promise.all(downloadPromises);
-    //   //this.triggerInternalProcessing();//not here
-    //   console.log('All streams downloaded successfully.');
-    // } catch (error) {
-    //   console.error('Error downloading streams:', error);
-    //   // Handle
-    // }
+    if (hours > 0) {
+      return `${hours}:${minutes.toString().padStart(2, '0')}:${remainingSeconds.toString().padStart(2, '0')}`;
+    }
+
+    return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
+  }
+
+  formatViews(viewCount?: number): string {
+    if (!viewCount || viewCount <= 0) {
+      return '-';
+    }
+
+    return viewCount.toLocaleString();
+  }
+
+  private buildAudioFriendlyName(stream: AudioStream): string {
+    return [
+      stream.formatId,
+      stream.formatNote,
+      stream.audioCodec,
+      stream.bitrate,
+      stream.size,
+    ].filter(Boolean).join(' | ');
+  }
+
+  private buildVideoFriendlyName(stream: VideoStream): string {
+    return [
+      stream.formatId,
+      stream.formatNote,
+      stream.videoQuality,
+      stream.videoResolution,
+      stream.videoCodec,
+      stream.bitrate,
+      stream.size,
+    ].filter(Boolean).join(' | ');
   }
 }
-
-// @Pipe({
-//   name: 'join'
-// })
-// export class JoinPipe implements PipeTransform {
-//   transform(input:Array<any>, sep = ','): string {
-//     return input.join(sep);
-//   }
-// }
-// <p>{{ cardData.names|join:', ' }}</p>

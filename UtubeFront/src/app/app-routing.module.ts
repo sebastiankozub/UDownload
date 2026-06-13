@@ -8,6 +8,7 @@ import { VideoDisplayComponent } from './video-display/video-display.component';
 const routes: Routes = [
   { path: '', component: HomeComponent },
   { path: 'search', component: SearchStreamComponent },
+  { path: 'manifest/:videoId', component: FileQualityPickerComponent },
   { path: 'file-quality-picker', component: FileQualityPickerComponent },
   { path: 'video-display', component: VideoDisplayComponent }
 ];

@@ -20,6 +20,7 @@ The intended MVP is:
 ## Current technical direction
 
 - **Use `yt-dlp` for YouTube integration.**
+- `yt-dlp` commands (print --help) in path: (solution folder)/yt-dlp-full-help.txt, interesting commands in (solution folder)/yt-dlp-interesting-commands.txt
 - Do **not** add new `YoutubeExplode`-based flows unless explicitly asked.
 - Existing `YoutubeExplode` endpoints are legacy and should be considered migration targets.
 - Prefer extending `YtService` for new `yt-dlp` functionality instead of building shell commands directly in controllers.

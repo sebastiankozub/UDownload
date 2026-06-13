@@ -9,6 +9,7 @@ namespace UtubeRest.Controllers;
 [Route("api/[controller]")]
 public class SearchController : ControllerBase
 {
+    private static readonly JsonSerializerOptions SseJsonOptions = new(JsonSerializerDefaults.Web);
     private readonly YtService _ytService;
 
     public SearchController(YtService ytService)
@@ -57,7 +58,7 @@ public class SearchController : ControllerBase
                 count,
                 async result =>
                 {
-                    var payload = JsonSerializer.Serialize(result);
+                    var payload = JsonSerializer.Serialize(result, SseJsonOptions);
                     await WriteSseMessageAsync(payload, cancellationToken);
                 },
                 cancellationToken);
@@ -66,6 +67,25 @@ public class SearchController : ControllerBase
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
+        }
+    }
+
+    [HttpGet("fetchmanifest/{videoId}")]
+    public async Task<ActionResult<AvManifest>> FetchManifest(string videoId)
+    {
+        if (string.IsNullOrWhiteSpace(videoId))
+        {
+            return BadRequest("Missing videoId");
+        }
+
+        try
+        {
+            var manifest = await _ytService.FetchManifestAsync(videoId);
+            return Ok(manifest);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return Problem(detail: ex.Message, statusCode: StatusCodes.Status502BadGateway);
         }
     }
 

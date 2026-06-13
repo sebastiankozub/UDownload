@@ -13,6 +13,15 @@ public class AvYtManifest
     [JsonPropertyName("title")]
     public required string Title { get; set; }
 
+    [JsonPropertyName("channel")]
+    public string? Channel { get; set; }
+
+    [JsonPropertyName("uploader")]
+    public string? Uploader { get; set; }
+
+    [JsonPropertyName("upload_date")]
+    public string? UploadDateRaw { get; set; }
+
     [JsonPropertyName("formats")]
     public required List<AvYtFormatManifest> Formats { get; set; }
 
@@ -238,4 +247,3 @@ public class Caption
     [JsonPropertyName("name")]
     public string? Name { get; set; }
 }
-

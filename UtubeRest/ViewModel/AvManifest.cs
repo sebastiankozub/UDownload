@@ -20,6 +20,16 @@ namespace UtubeRest.ViewModel
 
         public required string Title { get; set; }
 
+        public string? Channel { get; set; }
+
+        public string? Uploader { get; set; }
+
+        public string? Thumbnail { get; set; }
+
+        public long? ViewCount { get; set; }
+
+        public int? Duration { get; set; }
+
         //public Author Author { get; } = author;
 
         public DateTimeOffset UploadDate { get; set; }
@@ -69,6 +79,10 @@ namespace UtubeRest.ViewModel
     public abstract class AvStream
     {
         public required string HashId { get; set; }
+
+        public required string FormatId { get; set; }
+
+        public string? FormatNote { get; set; }
 
         public required string Url { get; set; }
 

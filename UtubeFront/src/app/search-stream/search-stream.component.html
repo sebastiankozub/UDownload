@@ -20,10 +20,32 @@
 
   <p>{{ statusMessage }}</p>
 
-  <ol>
-    <li *ngFor="let result of results">
-      <strong>{{ result.title }}</strong>
-      <div>{{ result.id }}</div>
-    </li>
-  </ol>
+  <table *ngIf="results.length > 0">
+    <thead>
+      <tr>
+        <th>#</th>
+        <th>Thumb</th>
+        <th>Title</th>
+        <th>Channel</th>
+        <th>Duration</th>
+        <th>Views</th>
+        <th>Video ID</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr *ngFor="let result of results; index as i">
+        <td>{{ i + 1 }}</td>
+        <td>
+          <img *ngIf="result.thumbnail" [src]="result.thumbnail" [alt]="result.title" width="120" />
+        </td>
+        <td>
+          <a [routerLink]="['/manifest', result.id]">{{ result.title || '(no title)' }}</a>
+        </td>
+        <td>{{ result.channel || result.uploader || '-' }}</td>
+        <td>{{ formatDuration(result.duration) }}</td>
+        <td>{{ formatViews(result.viewCount) }}</td>
+        <td>{{ result.id || '(no id)' }}</td>
+      </tr>
+    </tbody>
+  </table>
 </section>

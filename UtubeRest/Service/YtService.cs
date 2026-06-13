@@ -1,6 +1,7 @@
-﻿using System.Text;
+using System.Globalization;
+using System.Security.Cryptography;
+using System.Text;
 using System.Text.Json;
-using System.Xml;
 using Microsoft.Extensions.Options;
 using UtubeRest.Options;
 using UtubeRest.ViewModel;
@@ -9,6 +10,11 @@ namespace UtubeRest.Service
 {
     public class YtService : OsService
     {
+        private static readonly JsonSerializerOptions SearchJsonOptions = new()
+        {
+            PropertyNameCaseInsensitive = true,
+        };
+
         private readonly YtDlpOptions _ytDlpOptions;
 
         public YtService(IOptions<YtDlpOptions> ytDlpOptions)
@@ -43,11 +49,19 @@ namespace UtubeRest.Service
 
         public async Task<AvYtManifest> GetAvManifestAsync(string url)
         {
-            var param = BuildCommonArgs();
-            var ytDlpVideoManifestCommand = $"yt-dlp {url} {param} --dump-json".Trim();
-            var ytDlpManifest = await RunUnixCommandAsync(ytDlpVideoManifestCommand);
+            var ytDlpVideoManifestCommand = BuildManifestCommand(url);
+            var (ytDlpManifest, errorOutput) = await RunCommandCaptureAsync(ytDlpVideoManifestCommand);
 
-            var ytManifestObject = JsonSerializer.Deserialize<AvYtManifest>(ytDlpManifest);
+            if (string.IsNullOrWhiteSpace(ytDlpManifest))
+            {
+                throw new InvalidOperationException($"yt-dlp returned no manifest output. {errorOutput}".Trim());
+            }
+
+            var ytManifestObject = JsonSerializer.Deserialize<AvYtManifest>(ytDlpManifest, SearchJsonOptions);
+            if (ytManifestObject is null)
+            {
+                throw new InvalidOperationException("yt-dlp manifest output could not be deserialized.");
+            }
 
             return ytManifestObject;
         }
@@ -103,6 +117,14 @@ namespace UtubeRest.Service
                 cancellationToken: cancellationToken);
         }
 
+        public async Task<AvManifest> FetchManifestAsync(string videoIdOrUrl)
+        {
+            var url = NormalizeToYoutubeUrl(videoIdOrUrl);
+            var manifest = await GetAvManifestAsync(url);
+
+            return MapManifest(manifest);
+        }
+
         private string BuildCommonArgs()
         {
             var sb = new StringBuilder();
@@ -119,8 +141,8 @@ namespace UtubeRest.Service
             if (_ytDlpOptions.SleepRequestsSeconds > 0)
                 sb.Append($" --sleep-requests {_ytDlpOptions.SleepRequestsSeconds} --max-sleep-interval {_ytDlpOptions.MaxSleepIntervalSeconds}");
 
-            //if (!string.IsNullOrWhiteSpace(_ytDlpOptions.ExtractorArgs))
-            //    sb.Append($" --extractor-args \"{_ytDlpOptions.ExtractorArgs}\"");
+            if (!string.IsNullOrWhiteSpace(_ytDlpOptions.ExtractorArgs))
+                sb.Append($" --extractor-args {ShellQuote(_ytDlpOptions.ExtractorArgs)}");
 
             if (_ytDlpOptions.Retries > 0)
                 sb.Append($" --retries {_ytDlpOptions.Retries}");
@@ -149,10 +171,40 @@ namespace UtubeRest.Service
         {
             var param = BuildCommonArgsSimple();
             var jsRuntime = "--js-runtime node";
-            var printTemplate = $"--print {ShellQuote("%(id)s\t%(title)s")}";
             var searchArg = ShellQuote($"ytsearch{count}:{query}");
 
-            return $"yt-dlp {jsRuntime} {param} {printTemplate} {searchArg}".Trim();
+            return $"yt-dlp {jsRuntime} {param} --dump-json {searchArg}".Trim();   // --dump-json --flat-playlist  instead of --print-json
+        }
+
+        private string BuildManifestCommand(string url)
+        {
+            var param = BuildCommonArgsSimple();
+            var jsRuntime = "--js-runtime node";
+            //--dump-json, and add --flat-playlist
+            //return $"yt-dlp {jsRuntime} {param} --no-progress --no-warnings --no-playlist --print-json {ShellQuote(url)}".Trim();
+            return $"yt-dlp {jsRuntime} {param} --no-progress --no-warnings --no-playlist --dump-json {ShellQuote(url)}".Trim();
+        }
+
+        private async Task<(string Output, string Error)> RunCommandCaptureAsync(string command, CancellationToken cancellationToken = default)
+        {
+            var outputBuilder = new StringBuilder();
+            var errorBuilder = new StringBuilder();
+
+            await RunUnixCommandStreamingAsync(
+                command,
+                line =>
+                {
+                    outputBuilder.AppendLine(line);
+                    return Task.CompletedTask;
+                },
+                line =>
+                {
+                    errorBuilder.AppendLine(line);
+                    return Task.CompletedTask;
+                },
+                cancellationToken);
+
+            return (outputBuilder.ToString(), errorBuilder.ToString());
         }
 
         private static SearchResult? ParseSearchResult(string line)
@@ -162,21 +214,210 @@ namespace UtubeRest.Service
                 return null;
             }
 
-            var separatorIndex = line.IndexOf('\t');
-            if (separatorIndex <= 0 || separatorIndex >= line.Length - 1)
+            try
+            {
+                var result = JsonSerializer.Deserialize<SearchResult>(line, SearchJsonOptions);
+                if (result is null || string.IsNullOrWhiteSpace(result.Id) || string.IsNullOrWhiteSpace(result.Title))
+                {
+                    return null;
+                }
+
+                result.WebpageUrl ??= $"https://www.youtube.com/watch?v={result.Id}";
+                return result;
+            }
+            catch (JsonException)
+            {
+                return null;
+            }
+        }
+
+        private AvManifest MapManifest(AvYtManifest manifest)
+        {
+            return new AvManifest
+            {
+                Id = manifest.Id,
+                Title = manifest.Title,
+                Channel = manifest.Channel,
+                Uploader = manifest.Uploader,
+                Thumbnail = manifest.Thumbnail,
+                ViewCount = manifest.ViewCount,
+                Duration = manifest.Duration,
+                UploadDate = ParseUploadDate(manifest.UploadDateRaw),
+                Description = manifest.Description ?? string.Empty,
+                Keywords = manifest.Tags ?? [],
+                AudioStreams = (manifest.Formats ?? [])
+                    .Where(IsAudioOnlyFormat)
+                    .Select(MapAudioStream)
+                    .ToList(),
+                VideoStreams = (manifest.Formats ?? [])
+                    .Where(HasVideo)
+                    .Select(MapVideoStream)
+                    .ToList(),
+            };
+        }
+
+        private static bool IsAudioOnlyFormat(AvYtFormatManifest format)
+        {
+            return !IsNone(format.Acodec) && IsNone(format.Vcodec);
+        }
+
+        private static bool HasVideo(AvYtFormatManifest format)
+        {
+            return !IsNone(format.Vcodec);
+        }
+
+        private static bool IsNone(string? codec)
+        {
+            return string.IsNullOrWhiteSpace(codec) || string.Equals(codec, "none", StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static AudioAvStream MapAudioStream(AvYtFormatManifest format)
+        {
+            return new AudioAvStream
+            {
+                HashId = ComputeHash(format.Url ?? format.FormatId),
+                FormatId = format.FormatId,
+                FormatNote = format.FormatNote,
+                Url = format.Url ?? string.Empty,
+                Container = format.Container ?? format.Ext ?? string.Empty,
+                Size = FormatFileSize(format.Filesize) ?? FormatFileSize(format.FilesizeApprox) ?? string.Empty,
+                Bitrate = FormatBitrate(format.Abr, format.Tbr),
+                AudioCodec = format.Acodec ?? string.Empty,
+                AudioLanguage = format.Language,
+                IsAudioLanguageDefault = (format.LanguagePreference == 10).ToString(),
+            };
+        }
+
+        private static VideoAvStream MapVideoStream(AvYtFormatManifest format)
+        {
+            return new VideoAvStream
+            {
+                HashId = ComputeHash(format.Url ?? format.FormatId),
+                FormatId = format.FormatId,
+                FormatNote = format.FormatNote,
+                Url = format.Url ?? string.Empty,
+                Container = format.Container ?? format.Ext ?? string.Empty,
+                Size = FormatFileSize(format.Filesize) ?? FormatFileSize(format.FilesizeApprox) ?? string.Empty,
+                Bitrate = FormatBitrate(format.Vbr, format.Tbr),
+                VideoCodec = format.Vcodec ?? string.Empty,
+                VideoQuality = format.FormatNote ?? format.FormatDescription ?? string.Empty,
+                VideoResolution = format.Resolution ?? BuildResolution(format.Width, format.Height),
+            };
+        }
+
+        private static string ComputeHash(string input)
+        {
+            return BitConverter.ToString(SHA256.HashData(Encoding.UTF8.GetBytes(input))).Replace("-", string.Empty);
+        }
+
+        private static string? FormatFileSize(object? value)
+        {
+            if (value is null)
             {
                 return null;
             }
 
-            var id = line[..separatorIndex].Trim();
-            var title = line[(separatorIndex + 1)..].Trim();
-
-            if (id.Length == 0 || title.Length == 0)
+            if (value is long longValue)
             {
-                return null;
+                return FormatFileSize(longValue);
             }
 
-            return new SearchResult(id, title);
+            if (value is int intValue)
+            {
+                return FormatFileSize(intValue);
+            }
+
+            if (value is JsonElement jsonElement)
+            {
+                if (jsonElement.ValueKind == JsonValueKind.Number && jsonElement.TryGetInt64(out var elementLong))
+                {
+                    return FormatFileSize(elementLong);
+                }
+            }
+
+            if (long.TryParse(value.ToString(), out var parsed))
+            {
+                return FormatFileSize(parsed);
+            }
+
+            return null;
+        }
+
+        private static string FormatFileSize(long bytes)
+        {
+            string[] units = ["B", "KB", "MB", "GB", "TB"];
+            double size = bytes;
+            var unitIndex = 0;
+
+            while (size >= 1024 && unitIndex < units.Length - 1)
+            {
+                size /= 1024;
+                unitIndex++;
+            }
+
+            return $"{size:0.#} {units[unitIndex]}";
+        }
+
+        private static string FormatBitrate(float? primary, object? fallback)
+        {
+            if (primary.HasValue && primary.Value > 0)
+            {
+                return $"{primary.Value:0.#} kbps";
+            }
+
+            if (fallback is JsonElement jsonElement && jsonElement.ValueKind == JsonValueKind.Number && jsonElement.TryGetDouble(out var doubleValue))
+            {
+                return $"{doubleValue:0.#} kbps";
+            }
+
+            if (fallback is double fallbackDouble && fallbackDouble > 0)
+            {
+                return $"{fallbackDouble:0.#} kbps";
+            }
+
+            if (fallback is float fallbackFloat && fallbackFloat > 0)
+            {
+                return $"{fallbackFloat:0.#} kbps";
+            }
+
+            if (fallback is string fallbackString && double.TryParse(fallbackString, NumberStyles.Float, CultureInfo.InvariantCulture, out var parsed))
+            {
+                return $"{parsed:0.#} kbps";
+            }
+
+            return string.Empty;
+        }
+
+        private static string BuildResolution(int? width, int? height)
+        {
+            if (width.HasValue && height.HasValue)
+            {
+                return $"{width}x{height}";
+            }
+
+            return string.Empty;
+        }
+
+        private static string NormalizeToYoutubeUrl(string videoIdOrUrl)
+        {
+            if (videoIdOrUrl.Contains("youtube.com", StringComparison.OrdinalIgnoreCase)
+                || videoIdOrUrl.Contains("youtu.be", StringComparison.OrdinalIgnoreCase))
+            {
+                return videoIdOrUrl;
+            }
+
+            return $"https://www.youtube.com/watch?v={videoIdOrUrl}";
+        }
+
+        private static DateTimeOffset ParseUploadDate(string? rawUploadDate)
+        {
+            if (!string.IsNullOrWhiteSpace(rawUploadDate)
+                && DateTime.TryParseExact(rawUploadDate, "yyyyMMdd", CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal, out var parsedDate))
+            {
+                return new DateTimeOffset(parsedDate, TimeSpan.Zero);
+            }
+
+            return DateTimeOffset.MinValue;
         }
 
         private static string ShellQuote(string value)
