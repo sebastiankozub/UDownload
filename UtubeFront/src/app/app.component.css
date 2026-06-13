@@ -1,19 +1,30 @@
-/* nav {
-    display: flex;
-    justify-content: space-between;
-    padding: 10px;
+.app-shell {
+    font-family: Arial, Helvetica, sans-serif;
+    margin: 0 auto;
+    max-width: 960px;
+    padding: 16px;
 }
 
-nav a {
-    margin: 0 15px;
-    text-decoration: none;
-    color: #000;
-} */
+.app-header {
+    margin-bottom: 16px;
+}
+
+.app-header h1 {
+    margin-bottom: 4px;
+}
 
 nav {
-    justify-content: flex-start;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-bottom: 24px;
 }
 
 nav a {
-    margin: 0 5px;
+    color: #0056b3;
+    text-decoration: none;
+}
+
+nav a:hover {
+    text-decoration: underline;
 }

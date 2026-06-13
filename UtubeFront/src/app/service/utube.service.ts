@@ -18,8 +18,16 @@ export class UtubeApiService {
   postDownload(hashes: string[]): Observable<any> {
     return this.http.post<any>(`${this.baseUrl}/StreamStorage/Import`, hashes);
   }
+
+  getSearchStreamUrl(query: string, count: number): string {
+    const params = new URLSearchParams({
+      q: query,
+      count: count.toString(),
+    });
+
+    return `${this.baseUrl}/Search/stream?${params.toString()}`;
+  }
 }
 
 // POST
 //  /api/StreamStorage/Import
-

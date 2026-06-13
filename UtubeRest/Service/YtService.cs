@@ -68,26 +68,39 @@ namespace UtubeRest.Service
 
         public async Task<IEnumerable<SearchResult>> SearchAsync(string query, int count)
         {
-            var param = BuildCommonArgsSimple();
-            var jsRuntime = "--js-runtime node";
-            var printTemplate = "--print '%(id)s \t %(title)s'";
-            var searchArg = $"\"ytsearch{count}:{query}\"";
-            var cmd = $"yt-dlp {jsRuntime} {param} {printTemplate} {searchArg}".Trim();
-
-            var output = await RunUnixCommandAsync(cmd);
             var results = new List<SearchResult>();
-            using var reader = new StringReader(output);
-            string? line;
-            while ((line = reader.ReadLine()) != null)
-            {
-                if (string.IsNullOrWhiteSpace(line)) continue;
-                var parts = line.Split('\t');
-                if (parts.Length >= 2)
+
+            await SearchStreamAsync(
+                query,
+                count,
+                result =>
                 {
-                    results.Add(new SearchResult(parts[0], parts[1]));
-                }
-            }
+                    results.Add(result);
+                    return Task.CompletedTask;
+                });
+
             return results;
+        }
+
+        public async Task SearchStreamAsync(
+            string query,
+            int count,
+            Func<SearchResult, Task> onResult,
+            CancellationToken cancellationToken = default)
+        {
+            var cmd = BuildSearchCommand(query, count);
+
+            await RunUnixCommandStreamingAsync(
+                cmd,
+                async line =>
+                {
+                    var result = ParseSearchResult(line);
+                    if (result is not null)
+                    {
+                        await onResult(result);
+                    }
+                },
+                cancellationToken: cancellationToken);
         }
 
         private string BuildCommonArgs()
@@ -124,12 +137,51 @@ namespace UtubeRest.Service
             var sb = new StringBuilder();
 
             if (_ytDlpOptions.UseCookies && !string.IsNullOrEmpty(_ytDlpOptions.CookiesFilePath) && File.Exists(_ytDlpOptions.CookiesFilePath))
-                sb.Append($" --cookies {_ytDlpOptions.CookiesFilePath}");
+                sb.Append($" --cookies {ShellQuote(_ytDlpOptions.CookiesFilePath)}");
 
             //if (!string.IsNullOrWhiteSpace(_ytDlpOptions.UserAgent))
             //    sb.Append($" --user-agent \"{_ytDlpOptions.UserAgent}\"");
 
             return sb.ToString();
+        }
+
+        private string BuildSearchCommand(string query, int count)
+        {
+            var param = BuildCommonArgsSimple();
+            var jsRuntime = "--js-runtime node";
+            var printTemplate = $"--print {ShellQuote("%(id)s\t%(title)s")}";
+            var searchArg = ShellQuote($"ytsearch{count}:{query}");
+
+            return $"yt-dlp {jsRuntime} {param} {printTemplate} {searchArg}".Trim();
+        }
+
+        private static SearchResult? ParseSearchResult(string line)
+        {
+            if (string.IsNullOrWhiteSpace(line))
+            {
+                return null;
+            }
+
+            var separatorIndex = line.IndexOf('\t');
+            if (separatorIndex <= 0 || separatorIndex >= line.Length - 1)
+            {
+                return null;
+            }
+
+            var id = line[..separatorIndex].Trim();
+            var title = line[(separatorIndex + 1)..].Trim();
+
+            if (id.Length == 0 || title.Length == 0)
+            {
+                return null;
+            }
+
+            return new SearchResult(id, title);
+        }
+
+        private static string ShellQuote(string value)
+        {
+            return $"'{value.Replace("'", "'\"'\"'")}'";
         }
     }
 }

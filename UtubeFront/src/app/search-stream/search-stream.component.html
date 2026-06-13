@@ -1,0 +1,29 @@
+<section>
+  <h2>Live Search</h2>
+  <p>Results should appear line by line as yt-dlp returns them.</p>
+
+  <div>
+    <input
+      type="text"
+      [(ngModel)]="query"
+      placeholder="Search YouTube" />
+
+    <input
+      type="number"
+      [(ngModel)]="count"
+      min="1"
+      max="10000" />
+
+    <button type="button" (click)="startSearch()" [disabled]="isSearching">Start search</button>
+    <button type="button" (click)="stopSearch()" [disabled]="!isSearching">Stop</button>
+  </div>
+
+  <p>{{ statusMessage }}</p>
+
+  <ol>
+    <li *ngFor="let result of results">
+      <strong>{{ result.title }}</strong>
+      <div>{{ result.id }}</div>
+    </li>
+  </ol>
+</section>

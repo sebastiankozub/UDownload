@@ -21,6 +21,8 @@ namespace UtubeRest
                 options.AddPolicy("AllowSpecificOrigin",
                     builder => builder.WithOrigins("http://localhost:64100")
                                         .WithOrigins("http://127.0.0.1:64100")
+                                        .WithOrigins("http://localhost:4200")
+                                        .WithOrigins("http://127.0.0.1:4200")
                                       .AllowAnyHeader()
                                       .AllowAnyMethod());
             });
