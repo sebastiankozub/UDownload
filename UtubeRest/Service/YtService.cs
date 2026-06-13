@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Text.RegularExpressions;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
@@ -124,6 +125,14 @@ namespace UtubeRest.Service
         {
             var url = NormalizeToYoutubeUrl(videoIdOrUrl);
             var manifest = await GetAvManifestAsync(url);
+            var availableFormatIds = await GetAvailableFormatIdsAsync(url);
+
+            if (availableFormatIds.Count > 0)
+            {
+                manifest.Formats = (manifest.Formats ?? [])
+                    .Where(format => availableFormatIds.Contains(format.FormatId))
+                    .ToList();
+            }
 
             return MapManifest(manifest);
         }
@@ -230,6 +239,12 @@ namespace UtubeRest.Service
             return $"yt-dlp {jsRuntime} {param} --no-progress --no-warnings --no-playlist --dump-json {ShellQuote(url)}".Trim();
         }
 
+        private string BuildListFormatsCommand(string url)
+        {
+            var param = BuildManifestArgs();
+            return $"yt-dlp {param} --no-progress --no-warnings --no-playlist -F {ShellQuote(url)}".Trim();
+        }
+
         private string BuildManifestArgs()
         {
             var sb = new StringBuilder();
@@ -250,6 +265,45 @@ namespace UtubeRest.Service
         {
             var result = await RunUnixCommandWithResultAsync(command, cancellationToken);
             return (result.Output, result.Error);
+        }
+
+        private async Task<HashSet<string>> GetAvailableFormatIdsAsync(string url, CancellationToken cancellationToken = default)
+        {
+            var command = BuildListFormatsCommand(url);
+            var (output, error) = await RunCommandCaptureAsync(command, cancellationToken);
+            var combined = string.Join(
+                Environment.NewLine,
+                new[] { output, error }.Where(static text => !string.IsNullOrWhiteSpace(text)));
+
+            if (string.IsNullOrWhiteSpace(combined))
+            {
+                return [];
+            }
+
+            return combined
+                .Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries)
+                .Select(ParseFormatIdFromListLine)
+                .Where(static formatId => !string.IsNullOrWhiteSpace(formatId))
+                .ToHashSet(StringComparer.Ordinal);
+        }
+
+        private static string? ParseFormatIdFromListLine(string line)
+        {
+            if (string.IsNullOrWhiteSpace(line)
+                || line.StartsWith("[", StringComparison.Ordinal)
+                || line.StartsWith("-", StringComparison.Ordinal))
+            {
+                return null;
+            }
+
+            var match = Regex.Match(line, @"^(?<id>\S+)\s+\S+");
+            if (!match.Success)
+            {
+                return null;
+            }
+
+            var formatId = match.Groups["id"].Value;
+            return formatId.All(char.IsLetterOrDigit) ? formatId : null;
         }
 
         private static SearchResult? ParseSearchResult(string line)
@@ -295,7 +349,7 @@ namespace UtubeRest.Service
                     .Select(MapAudioStream)
                     .ToList(),
                 VideoStreams = (manifest.Formats ?? [])
-                    .Where(HasVideo)
+                    .Where(IsVideoOnlyFormat)
                     .Select(MapVideoStream)
                     .ToList(),
             };
@@ -306,9 +360,9 @@ namespace UtubeRest.Service
             return HasDownloadUrl(format) && !IsNone(format.Acodec) && IsNone(format.Vcodec);
         }
 
-        private static bool HasVideo(AvYtFormatManifest format)
+        private static bool IsVideoOnlyFormat(AvYtFormatManifest format)
         {
-            return HasDownloadUrl(format) && !IsNone(format.Vcodec);
+            return HasDownloadUrl(format) && !IsNone(format.Vcodec) && IsNone(format.Acodec);
         }
 
         private static bool HasDownloadUrl(AvYtFormatManifest format)
