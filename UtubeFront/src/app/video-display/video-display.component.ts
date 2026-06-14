@@ -1,5 +1,6 @@
 import { Component, OnInit } from '@angular/core';
-import { environment } from '../../environments/environment';
+import { ActivatedRoute } from '@angular/router';
+import { UtubeApiService } from '../service/utube.service';
 
 @Component({
   selector: 'app-video-display',
@@ -9,31 +10,51 @@ import { environment } from '../../environments/environment';
 })
 export class VideoDisplayComponent implements OnInit {
 
-  videoUrl: string | null = null;
-  loading: boolean = true;
+  mediaUrl: string | null = null;
+  mediaPath: string | null = null;
+  isVideo = true;
+  loading = true;
   error: string | null = null;
 
-  constructor() { }
+  constructor(
+    private route: ActivatedRoute,
+    private utubeService: UtubeApiService) { }
 
   ngOnInit(): void {
-    this.fetchVideo();
+    this.route.queryParamMap.subscribe(params => {
+      this.loadMedia(params.get('path'));
+    });
   }
 
-  fetchVideo(): void {
-    const videoPath = 'Подиум - Танцуй пока молодая.KX0QdxVdeFg.video.mp4';
-    // Direct URL - browser will handle range requests automatically
-    //this.videoUrl = `${environment.apiUrl}/Media/stream?path=${encodeURIComponent(videoPath)}`;
-    this.videoUrl = `${environment.apiUrl}/Media/stream?path=${videoPath}`;
+  loadMedia(path: string | null): void {
+    this.loading = true;
+    this.error = null;
+    this.mediaUrl = null;
+    this.mediaPath = path;
+
+    if (!path) {
+      this.error = 'Missing file path.';
+      this.loading = false;
+      return;
+    }
+
+    this.isVideo = !this.isAudioFile(path);
+    this.mediaUrl = this.utubeService.getStreamUrl(path);
     this.loading = false;
   }
 
-  onVideoCanPlay(): void {
+  onMediaCanPlay(): void {
     this.loading = false;
   }
 
-  onVideoError(event: any): void {
-    this.error = 'Failed to load video';
+  onMediaError(event: Event): void {
+    this.error = 'Failed to load media.';
     this.loading = false;
-    console.error('Video error:', event);
+    console.error('Media error:', event);
+  }
+
+  private isAudioFile(path: string): boolean {
+    const lowerPath = path.toLowerCase();
+    return lowerPath.endsWith('.mp3') || lowerPath.endsWith('.wav') || lowerPath.endsWith('.m4a');
   }
 }

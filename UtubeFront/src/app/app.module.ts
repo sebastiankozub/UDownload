@@ -11,6 +11,7 @@ import { HttpClientModule, provideHttpClient } from '@angular/common/http';
 import { HomeComponent } from './home/home.component';
 import { SearchStreamComponent } from './search-stream/search-stream.component';
 import { VideoDisplayComponent } from './video-display/video-display.component';
+import { DownloadsListComponent } from './downloads-list/downloads-list.component';
 
 
 
@@ -20,7 +21,8 @@ import { VideoDisplayComponent } from './video-display/video-display.component';
     FileQualityPickerComponent,
     HomeComponent,
     SearchStreamComponent,
-    VideoDisplayComponent
+    VideoDisplayComponent,
+    DownloadsListComponent
   ],
   imports: [
     BrowserModule,

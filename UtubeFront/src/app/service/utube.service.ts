@@ -8,6 +8,15 @@ export interface StreamImportRequest {
   videoFormatIds: string[];
 }
 
+export interface DownloadedFileItem {
+  name: string;
+  path: string;
+  sizeBytes: number;
+  modifiedAtUtc: string;
+  contentType: string;
+  isPlayable: boolean;
+}
+
 @Injectable({
   providedIn: 'root'
 })
@@ -25,8 +34,16 @@ export class UtubeApiService {
     return this.http.post<any>(`${this.baseUrl}/StreamStorage/Import`, request);
   }
 
+  getDownloadedFiles(): Observable<DownloadedFileItem[]> {
+    return this.http.get<DownloadedFileItem[]>(`${this.baseUrl}/StreamStorage/files`);
+  }
+
   fetchManifest(videoId: string): Observable<any> {
     return this.http.get(`${this.baseUrl}/Search/fetchmanifest/${encodeURIComponent(videoId)}`);
+  }
+
+  getStreamUrl(path: string): string {
+    return `${this.baseUrl}/StreamStorage/stream?path=${encodeURIComponent(path)}`;
   }
 
   getSearchStreamUrl(query: string, count: number): string {

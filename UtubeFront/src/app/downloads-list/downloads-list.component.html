@@ -1,0 +1,32 @@
+<section>
+  <h2>Downloaded Files</h2>
+
+  <p *ngIf="loading">Loading files...</p>
+  <p *ngIf="error">{{ error }}</p>
+
+  <table *ngIf="!loading && !error && files.length > 0">
+    <thead>
+      <tr>
+        <th>Name</th>
+        <th>Type</th>
+        <th>Size</th>
+        <th>Modified</th>
+        <th>Play</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr *ngFor="let file of files">
+        <td>{{ file.name }}</td>
+        <td>{{ file.contentType }}</td>
+        <td>{{ formatFileSize(file.sizeBytes) }}</td>
+        <td>{{ formatModifiedAt(file.modifiedAtUtc) }}</td>
+        <td>
+          <a *ngIf="file.isPlayable" [routerLink]="['/video-display']" [queryParams]="{ path: file.path }">Open</a>
+          <span *ngIf="!file.isPlayable">-</span>
+        </td>
+      </tr>
+    </tbody>
+  </table>
+
+  <p *ngIf="!loading && !error && files.length === 0">No downloaded files found.</p>
+</section>

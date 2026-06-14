@@ -1,13 +1,27 @@
-<div *ngIf="loading">Loading video...</div>
+<h2>Media Display</h2>
+
+<p *ngIf="mediaPath"><strong>File:</strong> {{ mediaPath }}</p>
+<div *ngIf="loading">Loading media...</div>
 <div *ngIf="error" class="error">{{ error }}</div>
 
 <video 
-  *ngIf="videoUrl" 
-  [src]="videoUrl" 
+  *ngIf="mediaUrl && isVideo" 
+  [src]="mediaUrl" 
   controls 
   preload="metadata"
-  (canplay)="onVideoCanPlay()"
-  (error)="onVideoError($event)"
+  (canplay)="onMediaCanPlay()"
+  (error)="onMediaError($event)"
   style="width: 100%; max-width: 800px;">
   Your browser does not support the video tag.
 </video>
+
+<audio
+  *ngIf="mediaUrl && !isVideo"
+  [src]="mediaUrl"
+  controls
+  preload="metadata"
+  (canplay)="onMediaCanPlay()"
+  (error)="onMediaError($event)"
+  style="width: 100%; max-width: 800px;">
+  Your browser does not support the audio tag.
+</audio>
