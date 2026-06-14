@@ -29,14 +29,14 @@ public class StreamStorageController : ControllerBase
         }
 
         var files = Directory
-            .EnumerateFiles(baseDir, "*", SearchOption.TopDirectoryOnly)
+            .EnumerateFiles(baseDir, "*", SearchOption.AllDirectories)
             .Select(path => new FileInfo(path))
             .Where(file => file.Exists && !file.Name.StartsWith('.'))
             .OrderByDescending(file => file.LastWriteTimeUtc)
             .Select(file => new DownloadedFileItem
             {
                 Name = file.Name,
-                Path = file.Name,
+                Path = Path.GetRelativePath(baseDir, file.FullName).Replace('\\', '/'),
                 SizeBytes = file.Length,
                 ModifiedAtUtc = file.LastWriteTimeUtc,
                 ContentType = GetContentType(file.Extension),
@@ -119,14 +119,19 @@ public class StreamStorageController : ControllerBase
             return BadRequest("VideoId is required.");
         }
 
-        if (request.AudioFormatIds.Count != 1)
+        if (request.AudioFormatIds.Count > 1)
         {
-            return BadRequest("Exactly one audio stream must be selected.");
+            return BadRequest("Only one audio stream can be selected.");
         }
 
-        if (request.VideoFormatIds.Count != 1)
+        if (request.VideoFormatIds.Count > 1)
         {
-            return BadRequest("Exactly one video stream must be selected.");
+            return BadRequest("Only one video stream can be selected.");
+        }
+
+        if (request.AudioFormatIds.Count == 0 && request.VideoFormatIds.Count == 0)
+        {
+            return BadRequest("Select at least one audio or video stream.");
         }
 
         var jobId = Guid.NewGuid().ToString("N");
@@ -135,8 +140,8 @@ public class StreamStorageController : ControllerBase
             new QueuedStreamDownloadRequest(
                 jobId,
                 request.VideoId,
-                request.AudioFormatIds[0],
-                request.VideoFormatIds[0]),
+                request.AudioFormatIds.FirstOrDefault(),
+                request.VideoFormatIds.FirstOrDefault()),
             cancellationToken);
 
         return Accepted(new
@@ -144,6 +149,8 @@ public class StreamStorageController : ControllerBase
             jobId,
             status = "queued",
             videoId = request.VideoId,
+            audioFormatId = request.AudioFormatIds.FirstOrDefault(),
+            videoFormatId = request.VideoFormatIds.FirstOrDefault(),
         });
     }
 

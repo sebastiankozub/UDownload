@@ -18,7 +18,7 @@
     <p><strong>Duration:</strong> {{ formatDuration(manifest.duration) }}</p>
     <p><strong>Views:</strong> {{ formatViews(manifest.viewCount) }}</p>
     <p *ngIf="manifest.description"><strong>Description:</strong> {{ manifest.description }}</p>
-    <p><strong>Download:</strong> select one audio stream and one video stream to queue a background download.</p>
+    <p><strong>Download:</strong> select one audio stream, one video stream, or one of each, then queue the download.</p>
 
     <div>
       <h4>Audio formats</h4>
@@ -87,6 +87,8 @@
         </tbody>
       </table>
     </div>
+
+    <button type="button" (click)="downloadStreams()" [disabled]="downloading || !canQueueDownload()">Queue download</button>
 
     <div *ngIf="downloading">Queueing download...</div>
     <div *ngIf="downloadInitSuccess">Download queued</div>

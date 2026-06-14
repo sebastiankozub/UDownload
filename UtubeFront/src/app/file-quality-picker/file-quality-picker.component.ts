@@ -52,7 +52,6 @@ export class FileQualityPickerComponent {
   downloadError: string | null = null;
   downloadComplete = false;
   downloadInitSuccess = false;
-  private lastQueuedSelectionKey: string | null = null;
 
   resourceId = '';
   videoStreams: VideoStream[] = [];
@@ -85,7 +84,6 @@ export class FileQualityPickerComponent {
     this.downloadInitSuccess = false;
     this.downloadComplete = false;
     this.downloading = false;
-    this.lastQueuedSelectionKey = null;
     this.avManifest = undefined;
     this.audioStreams = [];
     this.videoStreams = [];
@@ -114,14 +112,12 @@ export class FileQualityPickerComponent {
     this.downloadError = null;
     this.downloadInitSuccess = false;
     this.selectedAudioFormatIds = checked ? [formatId] : [];
-    this.tryStartDownload();
   }
 
   toggleVideoStream(formatId: string, checked: boolean) {
     this.downloadError = null;
     this.downloadInitSuccess = false;
     this.selectedVideoFormatIds = checked ? [formatId] : [];
-    this.tryStartDownload();
   }
 
   isAudioSelected(formatId: string): boolean {
@@ -135,12 +131,11 @@ export class FileQualityPickerComponent {
   async downloadStreams() {
     const request = this.buildDownloadRequest();
     if (!request) {
-      this.downloadError = 'Select exactly one audio stream and one video stream.';
+      this.downloadError = 'Select one audio stream, one video stream, or one of each.';
       return;
     }
 
-    const selectionKey = this.buildSelectionKey(request);
-    if (this.downloading || this.lastQueuedSelectionKey === selectionKey) {
+    if (this.downloading) {
       return;
     }
 
@@ -153,7 +148,6 @@ export class FileQualityPickerComponent {
         next: (response) => {
           this.downloading = false;
           this.downloadInitSuccess = true;
-          this.lastQueuedSelectionKey = selectionKey;
           console.log('Download initiated:', response);
         },
         error: (error) => {
@@ -212,18 +206,19 @@ export class FileQualityPickerComponent {
     ].filter(Boolean).join(' | ');
   }
 
-  private tryStartDownload() {
-    if (this.selectedAudioFormatIds.length === 1 && this.selectedVideoFormatIds.length === 1) {
-      void this.downloadStreams();
-    }
+  canQueueDownload(): boolean {
+    const totalSelected = this.selectedAudioFormatIds.length + this.selectedVideoFormatIds.length;
+    return totalSelected >= 1 && totalSelected <= 2;
   }
 
   private buildDownloadRequest(): StreamImportRequest | null {
     const videoId = this.avManifest?.id ?? this.resourceId.trim();
+    const totalSelected = this.selectedAudioFormatIds.length + this.selectedVideoFormatIds.length;
 
     if (!videoId
-      || this.selectedAudioFormatIds.length !== 1
-      || this.selectedVideoFormatIds.length !== 1) {
+      || this.selectedAudioFormatIds.length > 1
+      || this.selectedVideoFormatIds.length > 1
+      || totalSelected === 0) {
       return null;
     }
 
@@ -232,13 +227,5 @@ export class FileQualityPickerComponent {
       audioFormatIds: [...this.selectedAudioFormatIds],
       videoFormatIds: [...this.selectedVideoFormatIds],
     };
-  }
-
-  private buildSelectionKey(request: StreamImportRequest): string {
-    return [
-      request.videoId,
-      request.audioFormatIds[0],
-      request.videoFormatIds[0],
-    ].join(':');
   }
 }

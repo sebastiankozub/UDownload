@@ -137,27 +137,24 @@ namespace UtubeRest.Service
             return MapManifest(manifest);
         }
 
-        public async Task DownloadSelectedFormatsAsync(
+        public async Task DownloadSelectedStreamsAsync(
             string videoIdOrUrl,
-            string videoFormatId,
-            string audioFormatId,
+            string? videoFormatId,
+            string? audioFormatId,
             CancellationToken cancellationToken = default)
         {
-            if (string.IsNullOrWhiteSpace(videoFormatId))
+            if (string.IsNullOrWhiteSpace(videoFormatId) && string.IsNullOrWhiteSpace(audioFormatId))
             {
-                throw new ArgumentException("Video format ID is required.", nameof(videoFormatId));
-            }
-
-            if (string.IsNullOrWhiteSpace(audioFormatId))
-            {
-                throw new ArgumentException("Audio format ID is required.", nameof(audioFormatId));
+                throw new ArgumentException("At least one format ID is required.");
             }
 
             var url = NormalizeToYoutubeUrl(videoIdOrUrl);
-            const string outputTemplate = "/home/app/downloads/%(title)s.%(id)s.%(ext)s";
-            var formatSelector = $"{videoFormatId}+{audioFormatId}";
+            var manifest = await GetAvManifestAsync(url);
+            var outputTemplate = BuildOutputTemplate(manifest, videoFormatId, audioFormatId);
+            var formatSelector = BuildFormatSelector(videoFormatId, audioFormatId);
+            var jsRuntime = "--js-runtime node";
 
-            var command = $"yt-dlp {BuildCommonArgs()} -f {ShellQuote(formatSelector)} -o {ShellQuote(outputTemplate)} {ShellQuote(url)}".Trim();
+            var command = $"yt-dlp {jsRuntime} {BuildCommonArgs()} -f {ShellQuote(formatSelector)} -o {ShellQuote(outputTemplate)} {ShellQuote(url)}".Trim();
             var result = await RunUnixCommandWithResultAsync(command, cancellationToken);
 
             if (result.ExitCode != 0)
@@ -237,6 +234,207 @@ namespace UtubeRest.Service
             //--dump-json, and add --flat-playlist
             //return $"yt-dlp {jsRuntime} {param} --no-progress --no-warnings --no-playlist --print-json {ShellQuote(url)}".Trim();
             return $"yt-dlp {jsRuntime} {param} --no-progress --no-warnings --no-playlist --dump-json {ShellQuote(url)}".Trim();
+        }
+
+        private static string BuildFormatSelector(string? videoFormatId, string? audioFormatId)
+        {
+            if (!string.IsNullOrWhiteSpace(videoFormatId) && !string.IsNullOrWhiteSpace(audioFormatId))
+            {
+                return $"{videoFormatId}+{audioFormatId}";
+            }
+
+            if (!string.IsNullOrWhiteSpace(videoFormatId))
+            {
+                return videoFormatId;
+            }
+
+            return audioFormatId!;
+        }
+
+        private static string BuildOutputTemplate(AvYtManifest manifest, string? videoFormatId, string? audioFormatId)
+        {
+            const string downloadsRoot = "/home/app/downloads";
+
+            var videoFormat = FindFormat(manifest, videoFormatId);
+            var audioFormat = FindFormat(manifest, audioFormatId);
+            var folderKind = GetFolderKind(videoFormatId, audioFormatId);
+            var qualityFolder = GetQualityFolderName(videoFormat, audioFormat, folderKind);
+            var safeTitle = SanitizePathSegment(manifest.Title, "video-title");
+            var safeVideoId = SanitizePathSegment(manifest.Id, "video");
+            var titleFolder = $"{safeTitle} [{safeVideoId}]";
+            var outputDirectory = Path.Combine(downloadsRoot, titleFolder, folderKind, qualityFolder);
+
+            Directory.CreateDirectory(outputDirectory);
+
+            return Path.Combine(outputDirectory, "%(title)s.[%(id)s].%(ext)s").Replace('\\', '/');
+        }
+
+        private static AvYtFormatManifest? FindFormat(AvYtManifest manifest, string? formatId)
+        {
+            if (string.IsNullOrWhiteSpace(formatId))
+            {
+                return null;
+            }
+
+            return (manifest.Formats ?? []).FirstOrDefault(format => string.Equals(format.FormatId, formatId, StringComparison.Ordinal));
+        }
+
+        private static string GetFolderKind(string? videoFormatId, string? audioFormatId)
+        {
+            if (!string.IsNullOrWhiteSpace(videoFormatId) && !string.IsNullOrWhiteSpace(audioFormatId))
+            {
+                return "merge";
+            }
+
+            if (!string.IsNullOrWhiteSpace(videoFormatId))
+            {
+                return "video";
+            }
+
+            return "audio";
+        }
+
+        private static string GetQualityFolderName(AvYtFormatManifest? videoFormat, AvYtFormatManifest? audioFormat, string folderKind)
+        {
+            return folderKind switch
+            {
+                "merge" => SanitizePathSegment($"{BuildVideoQualityLabel(videoFormat)}+{BuildAudioQualityLabel(audioFormat)}", "selected-quality"),
+                "video" => SanitizePathSegment(BuildVideoQualityLabel(videoFormat), "video-quality"),
+                _ => SanitizePathSegment(BuildAudioQualityLabel(audioFormat), "audio-quality"),
+            };
+        }
+
+        private static string BuildVideoQualityLabel(AvYtFormatManifest? format)
+        {
+            if (format is null)
+            {
+                return "video";
+            }
+
+            var parts = new List<string>();
+            var quality = FirstNonEmpty(format.FormatNote, format.Resolution, BuildResolution(format.Width, format.Height));
+            if (!string.IsNullOrWhiteSpace(quality))
+            {
+                parts.Add(quality);
+            }
+
+            if (format.Fps.HasValue && format.Fps.Value > 0)
+            {
+                parts.Add($"{format.Fps.Value:0}fps");
+            }
+
+            var codec = HumanizeVideoCodec(format.Vcodec);
+            if (!string.IsNullOrWhiteSpace(codec))
+            {
+                parts.Add(codec);
+            }
+
+            return string.Join('-', parts.Where(static part => !string.IsNullOrWhiteSpace(part)));
+        }
+
+        private static string BuildAudioQualityLabel(AvYtFormatManifest? format)
+        {
+            if (format is null)
+            {
+                return "audio";
+            }
+
+            var parts = new List<string>();
+            var quality = FirstNonEmpty(format.FormatNote, FormatBitrate(format.Abr, format.Tbr));
+            if (!string.IsNullOrWhiteSpace(quality))
+            {
+                parts.Add(quality);
+            }
+
+            var codec = HumanizeAudioCodec(format.Acodec);
+            if (!string.IsNullOrWhiteSpace(codec))
+            {
+                parts.Add(codec);
+            }
+
+            if (!string.IsNullOrWhiteSpace(format.Language))
+            {
+                parts.Add(format.Language);
+            }
+
+            return string.Join('-', parts.Where(static part => !string.IsNullOrWhiteSpace(part)));
+        }
+
+        private static string? FirstNonEmpty(params string?[] values)
+        {
+            return values.FirstOrDefault(static value => !string.IsNullOrWhiteSpace(value));
+        }
+
+        private static string HumanizeVideoCodec(string? codec)
+        {
+            if (string.IsNullOrWhiteSpace(codec) || IsNone(codec))
+            {
+                return string.Empty;
+            }
+
+            if (codec.StartsWith("avc1", StringComparison.OrdinalIgnoreCase))
+            {
+                return "h264";
+            }
+
+            if (codec.StartsWith("av01", StringComparison.OrdinalIgnoreCase))
+            {
+                return "av1";
+            }
+
+            if (codec.StartsWith("vp9", StringComparison.OrdinalIgnoreCase))
+            {
+                return "vp9";
+            }
+
+            if (codec.StartsWith("vp8", StringComparison.OrdinalIgnoreCase))
+            {
+                return "vp8";
+            }
+
+            return codec;
+        }
+
+        private static string HumanizeAudioCodec(string? codec)
+        {
+            if (string.IsNullOrWhiteSpace(codec) || IsNone(codec))
+            {
+                return string.Empty;
+            }
+
+            if (codec.StartsWith("mp4a", StringComparison.OrdinalIgnoreCase))
+            {
+                return "aac";
+            }
+
+            if (codec.StartsWith("opus", StringComparison.OrdinalIgnoreCase))
+            {
+                return "opus";
+            }
+
+            if (codec.StartsWith("vorbis", StringComparison.OrdinalIgnoreCase))
+            {
+                return "vorbis";
+            }
+
+            return codec;
+        }
+
+        private static string SanitizePathSegment(string? value, string fallback)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                return fallback;
+            }
+
+            var sanitized = value.Trim();
+            sanitized = sanitized.Replace('/', '-').Replace('\\', '-');
+            sanitized = sanitized.Replace(':', '-').Replace('*', '-').Replace('?', '-');
+            sanitized = sanitized.Replace('"', '-').Replace('<', '-').Replace('>', '-').Replace('|', '-');
+            sanitized = Regex.Replace(sanitized, @"\s+", "-");
+            sanitized = Regex.Replace(sanitized, "-{2,}", "-").Trim('-');
+
+            return string.IsNullOrWhiteSpace(sanitized) ? fallback : sanitized;
         }
 
         private string BuildListFormatsCommand(string url)

@@ -45,7 +45,7 @@ public sealed class StreamDownloadBackgroundService : BackgroundService
                     request.VideoFormatId,
                     request.AudioFormatId);
 
-                await ytService.DownloadSelectedFormatsAsync(
+                await ytService.DownloadSelectedStreamsAsync(
                     request.VideoId,
                     request.VideoFormatId,
                     request.AudioFormatId,
